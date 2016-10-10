@@ -271,7 +271,7 @@ public class PackageWorld extends Environment{
 
       PackageWorld world;
       PackageState initState;
-      Class agentClass = null;               // the class for the agent
+      Class<?> agentClass = null;               // the class for the agent
       int numAgents = DEFAULT_NUM_AGENTS;
       boolean useSeed = false;
       long seed = 0;
