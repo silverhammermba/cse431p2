@@ -337,6 +337,7 @@ public class PackageWorld extends Environment{
       	}
       } catch (Exception ex) {
       	System.err.println("ERROR - Attempting to instantiate agents");
+      	System.err.println(ex);
       	System.exit(1);
       }
       if (useSeed == false)
