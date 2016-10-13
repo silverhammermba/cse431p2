@@ -5,6 +5,7 @@ import agent.Agent;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -19,10 +20,17 @@ public class PacPercept extends Percept{
    protected int worldSize;
    
    public static final int VIS_RADIUS = 5;           // allows 11x11 square of visibility
+
    public static double LOCATION_NOISE = 0.05;   // the chance that a visible package will be seen in the wrong spot
    public static double PHANTOM_PACKAGE_NOISE = 0.02;   // chance that an imaginary package will be seen for a percept
    public static double DESTINATION_NOISE = 0.20;         // chance that a visible package will appear to have the wrong destination
 
+/*   // for testing only
+   public static double LOCATION_NOISE = 0.25;   // the chance that a visible package will be seen in the wrong spot
+   public static double PHANTOM_PACKAGE_NOISE = 0.2;   // chance that an imaginary package will be seen for a percept
+   public static double DESTINATION_NOISE = 0.25;         // chance that a visible package will appear to have the wrong destination
+*/
+   
    /** Construct a package delivery world percept. The agents can
       see everything in 9x9 grid centered on it. If the agent moved into an
       obstacle on the previous turn the agent will feel a bump. */
@@ -73,10 +81,10 @@ public class PacPercept extends Percept{
             	   if (roll < LOCATION_NOISE) {
             		   int dx = PackageState.rand.nextInt(3) - 1;
             		   int dy = PackageState.rand.nextInt(3) - 1;
-            		   vpack = new VisiblePackage(pack, pack.getDestX()+dx, pack.getDestY()+dy);
+            		   vpack = new VisiblePackage(pack, tx+dx, ty+dy);       // JDH 10/11/16: getDestX/Y -> tx/ty
             		   System.out.println("*** LOCATION NOISE ****");
             		   System.out.println("Agent " + agent.getId() + ": Package(" + tx + "," + ty + ") " +
-            				   "Real Loc: (" + pack.getDestX() + "," + pack.getDestY() + ") " +
+            				   "Real Loc: (" + pack.getX() + "," + pack.getY() + ") " +
             				   "Noise Loc: (" + vpack.getX() + "," + vpack.getY() + ")");
             		   System.out.println("**************");
             	   }
@@ -90,7 +98,7 @@ public class PacPercept extends Percept{
             		   System.out.println("*** DESTINATION NOISE ****");
             		   System.out.println("Agent " + agent.getId() + ": Package(" + tx + "," + ty + ") " +
             				   "Real Dest: (" + pack.getDestX() + "," + pack.getDestY() + ") " +
-            				   "Noise Dest: (" + fakeDestination.getX() + "," + fakeDestination.getY() + ")");
+            				   "Noise Dest: (" + vpack.getDestX() + "," + vpack.getDestY() + ")");
             		   System.out.println("**************");
             	   }
             	   else
@@ -110,11 +118,14 @@ public class PacPercept extends Percept{
 		  int destId = PackageState.rand.nextInt(state.getNumDestinations());
 		  Location fakeDestination = state.getDestinations()[destId];
 		  VisiblePackage vpack = new VisiblePackage(fakeId, px, py, fakeDestination.getX(), fakeDestination.getY());
+		  visPackages.add(vpack);         // JDH: added 10/11/16 - bug fix 
 		  System.out.println("*** PHANTOM PACKAGE NOISE ****");
 		  System.out.println("Agent " + agent.getId() + ": Illusory Package(" + px + "," + py + ") " +
 				   "Illuosry Dest: (" + vpack.getDestX() + "," + vpack.getDestY() + ") ");
 		  System.out.println("**************");
 	  }
+	// shuffle the visible packages, otherwise we know that the first n-1 are true packages
+      Collections.shuffle(visPackages, PackageState.rand);   
       
       messages = state.getMessages().clone();
 
