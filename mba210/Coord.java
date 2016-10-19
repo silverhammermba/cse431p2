@@ -3,9 +3,10 @@ package mba210;
 import pacworld.Location;
 import pacworld.Direction;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class Coord
+public class Coord implements Serializable
 {
 	public final int x;
 	public final int y;

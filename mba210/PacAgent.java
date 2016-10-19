@@ -20,14 +20,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
 public class PacAgent extends Agent
 {
-	enum Message { COORDS, UNKNOWN };
-
 	// how many new things we need to know before we send a message
 	final int discovery_share_thresh = 10;
 	// copied from PacPercept for convenience
@@ -109,17 +104,21 @@ public class PacAgent extends Agent
 		for (VisibleAgent agent : percept.getVisAgents())
 			known[agent.getX()][agent.getY()] = true;
 
-		// we also know clear spaces that other agents tell us
-		// anything we receive goes in shared_discoveries
+		List<Message> messages = new ArrayList<Message>();
+
 		for (String message : percept.getMessages())
 		{
-			if (messageType(message) == Message.COORDS)
+			messages.add(Message.fromString(message));
+		}
+
+		// we also know clear spaces that other agents tell us
+		// anything we receive goes in shared_discoveries
+		for (Message message : messages)
+		{
+			for (Coord c : message.coords)
 			{
-				for (Coord c : parseCoordMessage(message))
-				{
-					known[c.x][c.y] = true;
-					shared_discoveries.add(c);
-				}
+				known[c.x][c.y] = true;
+				shared_discoveries.add(c);
 			}
 		}
 
@@ -145,31 +144,6 @@ public class PacAgent extends Agent
 
 		System.out.println(id);
 		System.out.println(world);
-	}
-
-	private Message messageType(String message)
-	{
-		if (message.charAt(0) == 'W')
-		{
-			return Message.COORDS;
-		}
-
-		System.err.println("Unknown message: " + message);
-		return Message.UNKNOWN;
-	}
-
-	private List<Coord> parseCoordMessage(String message)
-	{
-		List<Coord> coords = new ArrayList<Coord>();
-
-		Matcher matcher = Pattern.compile("(\\d+),(\\d+);").matcher(message);
-
-		while (matcher.find())
-		{
-			coords.add(new Coord(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2))));
-		}
-
-		return coords;
 	}
 
 	private String newCoordMessage(Set<Coord> coords)
@@ -217,7 +191,12 @@ public class PacAgent extends Agent
 			for (Coord c : discoveries)
 				shared_discoveries.add(c);
 
-			return new Say(newCoordMessage(discoveries));
+			Message message = new Message();
+			message.coords = new ArrayList<Coord>();
+			for (Coord c : discoveries)
+				message.coords.add(c);
+
+			return new Say(message.toString());
 		}
 
 		return null;
