@@ -35,6 +35,7 @@ public class World
 		return x >= 0 && y >= 0 && x < size && y < size;
 	}
 
+	// TODO take list of forbidden coords (where other Agents are already exploring)
 	public Coord nearestUnknown(Coord c)
 	{
 		List<Coord> nearest = new ArrayList<Coord>();
@@ -54,6 +55,8 @@ public class World
 				}
 			}
 		}
+
+		if (nearest.size() == 0) return null;
 
 		return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
 	}

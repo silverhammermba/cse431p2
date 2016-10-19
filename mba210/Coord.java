@@ -27,24 +27,13 @@ public class Coord
 		return Math.abs(x - c.x) + Math.abs(y - c.y);
 	}
 
-	// constrain the coord to the rectangle with corners c1 and c2
-	public Coord clamp(Coord c1, Coord c2)
+	public int dirTo(Coord c)
 	{
-		int mnx = c1.x;
-		int mxx = c2.x;
-		if (c1.x > c2.x)
-		{
-			mnx = c2.x;
-			mxx = c1.x;
-		}
-		int mny = c1.y;
-		int mxy = c2.y;
-		if (c1.y > c2.y)
-		{
-			mny = c2.y;
-			mxy = c1.y;
-		}
-		return new Coord(Math.min(Math.max(x, mnx), mxx), Math.min(Math.max(y, mny), mxy));
+		if (c.x < x) return Direction.WEST;
+		if (c.y < y) return Direction.NORTH;
+		if (c.x > x) return Direction.EAST;
+		if (c.y > y) return Direction.SOUTH;
+		return -1;
 	}
 
 	@Override

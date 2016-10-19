@@ -30,9 +30,11 @@ public class PacAgent extends Agent
 
 	// how many new things we need to know before we send a message
 	final int discovery_share_thresh = 10;
+	// copied from PacPercept for convenience
+	final int vis_radius;
 
 	Coord pos;
-	final int vis_radius;
+	Coord goal;
 	World world;
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
@@ -166,8 +168,34 @@ public class PacAgent extends Agent
 		return message;
 	}
 
+	// simple subsumption architecture
 	public Action selectAction()
 	{
+		Action action = null;
+
+		// first ensure important information is shared
+		action = communicate();
+		if (action != null) return action;
+
+		// then make sure held packages are delivered
+		action = deliver();
+		if (action != null) return action;
+
+		// then explore for new packages
+		action = explore();
+		if (action != null) return action;
+
+		// shouldn't get here
+		return new Idle();
+	}
+
+	Action communicate()
+	{
+		// TODO if new goal, broadcast that
+
+		// TODO if goal achieved, broadcast discoveries (including cleared goal)
+
+		// if we've discovered a lot, broadcast that
 		if (discoveries.size() >= discovery_share_thresh)
 		{
 			for (Coord c : discoveries)
@@ -176,25 +204,46 @@ public class PacAgent extends Agent
 			return new Say(newCoordMessage(discoveries));
 		}
 
-		Coord nearest = world.nearestUnknown(pos);
-		System.out.println(id + " at " + pos + " nearest " + nearest);
+		return null;
+	}
 
-		if (nearest.x < pos.x) return new Move(Direction.WEST);
-		if (nearest.y < pos.y) return new Move(Direction.NORTH);
-		if (nearest.x > pos.x) return new Move(Direction.EAST);
-		if (nearest.y > pos.y) return new Move(Direction.SOUTH);
+	Action deliver()
+	{
+		// TODO if we're at the goal, drop the package
 
-		return new Idle();
+		// TODO if we're holding a package, determine direction to goal
 
-		/*
-		switch (ThreadLocalRandom.current().nextInt(0, 5))
+		// TODO if obstacle, avoid it
+
+		return null;
+	}
+
+	Action explore()
+	{
+		// TODO if no goal, set goal
+
+		// TODO get direction to goal
+
+		// TODO if obstacle, avoid it
+		if (possible_package != -1)
 		{
-			case 0: return new Dropoff(dir);
-			case 1: return new Idle();
-			case 2: return new Move(dir);
-			case 3: return new Pickup(dir);
-			default: return new Say("Hey!");
 		}
-		*/
+
+		Coord nearest = world.nearestUnknown(pos);
+
+		if (nearest)
+		{
+			int dir = pos.dirTo(nearest);
+
+			// if we're right next to an unknown space, it could be a package
+			if (pos.dist(nearest) == 1)
+			{
+				possible_package = dir;
+			}
+
+			return new Move(dir);
+		}
+
+		return null;
 	}
 }
