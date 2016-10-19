@@ -38,6 +38,9 @@ public class PacAgent extends Agent
 	World world;
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
+	Set<Coord> obstacles;
+	boolean new_goal;
+	int possible_package;
 
 	public PacAgent(int id)
 	{
@@ -45,6 +48,8 @@ public class PacAgent extends Agent
 		vis_radius = PacPercept.VIS_RADIUS;
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
+		new_goal = false;
+		possible_package = -1;
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -61,6 +66,8 @@ public class PacAgent extends Agent
 		// initialize the world map once we know the world size
 		if (world == null) world = new World(percept.getWorldSize());
 
+		obstacles = new HashSet<Coord>();
+
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
 			if (agent.getId() == id)
@@ -68,7 +75,12 @@ public class PacAgent extends Agent
 				pos = new Coord(agent.getX(), agent.getY());
 				System.out.println(id + " is at " + pos);
 			}
+			else
+				// TODO take into account held packages
+				obstacles.add(new Coord(agent.getX(), agent.getY()));
 		}
+
+		obstacles = new HashSet<Coord>();
 
 		// what do we know about the world from this percept?
 		boolean known[][] = new boolean[world.getSize()][world.getSize()];
@@ -94,7 +106,6 @@ public class PacAgent extends Agent
 		}
 
 		// but anywhere we see an agent is certainly clear
-		// TODO keep track of these as obstacles for pathing
 		for (VisibleAgent agent : percept.getVisAgents())
 			known[agent.getX()][agent.getY()] = true;
 
@@ -220,30 +231,44 @@ public class PacAgent extends Agent
 
 	Action explore()
 	{
-		// TODO if no goal, set goal
+		// if no goal, set goal
+		if (goal == null)
+		{
+			new_goal = true;
+			goal = world.nearestUnknown(pos);
+		}
 
-		// TODO get direction to goal
+		// get direction to goal
+		int dir = pos.dirTo(goal);
+		Coord next = pos.shift(dir);
 
-		// TODO if obstacle, avoid it
+		// if obstacle, avoid it
+		for (Coord o : obstacles)
+		{
+			if (o == next)
+			{
+				// always step to the left
+				switch (dir)
+				{
+					case Direction.WEST: return new Move(Direction.SOUTH);
+					case Direction.NORTH: return new Move(Direction.WEST);
+					case Direction.EAST: return new Move(Direction.NORTH);
+					case Direction.SOUTH: return new Move(Direction.EAST);
+				}
+			}
+		}
+
+		// TODO when to pick up package?
 		if (possible_package != -1)
 		{
 		}
 
-		Coord nearest = world.nearestUnknown(pos);
-
-		if (nearest)
+		// if we're right next to the unknown space, it could be a package
+		if (goal == next)
 		{
-			int dir = pos.dirTo(nearest);
-
-			// if we're right next to an unknown space, it could be a package
-			if (pos.dist(nearest) == 1)
-			{
-				possible_package = dir;
-			}
-
-			return new Move(dir);
+			possible_package = dir;
 		}
 
-		return null;
+		return new Move(dir);
 	}
 }

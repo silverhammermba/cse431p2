@@ -1,6 +1,7 @@
 package mba210;
 
 import pacworld.Location;
+import pacworld.Direction;
 
 import java.util.Objects;
 
@@ -34,6 +35,11 @@ public class Coord
 		if (c.x > x) return Direction.EAST;
 		if (c.y > y) return Direction.SOUTH;
 		return -1;
+	}
+
+	public Coord shift(int d)
+	{
+		return new Coord(x + Direction.DELTA_X[d], y + Direction.DELTA_Y[d]);
 	}
 
 	@Override
