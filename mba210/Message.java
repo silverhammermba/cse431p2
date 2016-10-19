@@ -13,8 +13,11 @@ import java.util.List;
 
 public class Message implements Serializable
 {
+	public Coord goal;
+	public Coord pos;
 	public List<Coord> coords;
 
+	// TODO can probably make fromString/toString more efficient
 	static Message fromString(String str)
 	{
 		Message message;

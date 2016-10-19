@@ -34,8 +34,9 @@ public class PacAgent extends Agent
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
 	Set<Coord> obstacles;
-	boolean new_goal;
 	int possible_package;
+	VisiblePackage held_package;
+	boolean bumped;
 
 	public PacAgent(int id)
 	{
@@ -43,7 +44,6 @@ public class PacAgent extends Agent
 		vis_radius = PacPercept.VIS_RADIUS;
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
-		new_goal = false;
 		possible_package = -1;
 		// XXX other initialization is done after the first percept is received
 	}
@@ -63,6 +63,15 @@ public class PacAgent extends Agent
 
 		obstacles = new HashSet<Coord>();
 
+		// copy some parts of the percept for convenience
+		held_package = percept.getHeldPackage();
+		bumped = percept.feelBump();
+		List<Message> messages = new ArrayList<Message>();
+		for (String message : percept.getMessages())
+		{
+			messages.add(Message.fromString(message));
+		}
+
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
 			if (agent.getId() == id)
@@ -74,8 +83,6 @@ public class PacAgent extends Agent
 				// TODO take into account held packages
 				obstacles.add(new Coord(agent.getX(), agent.getY()));
 		}
-
-		obstacles = new HashSet<Coord>();
 
 		// what do we know about the world from this percept?
 		boolean known[][] = new boolean[world.getSize()][world.getSize()];
@@ -104,22 +111,22 @@ public class PacAgent extends Agent
 		for (VisibleAgent agent : percept.getVisAgents())
 			known[agent.getX()][agent.getY()] = true;
 
-		List<Message> messages = new ArrayList<Message>();
-
-		for (String message : percept.getMessages())
-		{
-			messages.add(Message.fromString(message));
-		}
-
 		// we also know clear spaces that other agents tell us
 		// anything we receive goes in shared_discoveries
 		for (Message message : messages)
 		{
+			if (message.coords == null) continue;
 			for (Coord c : message.coords)
 			{
 				known[c.x][c.y] = true;
 				shared_discoveries.add(c);
 			}
+		}
+
+		// if we have a goal and a package, we must have picked it up, so that spot is now clear
+		if (goal != null && held_package != null)
+		{
+			known[goal.x][goal.y] = true;
 		}
 
 		// now update our world map of clear spaces
@@ -136,26 +143,6 @@ public class PacAgent extends Agent
 		}
 		// and update our list of discoveries (remove things that are already public knowledge)
 		for (Coord c : shared_discoveries) discoveries.remove(c);
-
-		if (goal != null && world.at(goal) == World.Space.CLEAR)
-		{
-			goal = null;
-		}
-
-		System.out.println(id);
-		System.out.println(world);
-	}
-
-	private String newCoordMessage(Set<Coord> coords)
-	{
-		String message = "W";
-
-		for (Coord coord : coords)
-		{
-			message += coord.x + "," + coord.y + ";";
-		}
-
-		return message;
 	}
 
 	// simple subsumption architecture
@@ -171,6 +158,10 @@ public class PacAgent extends Agent
 		action = deliver();
 		if (action != null) return action;
 
+		// then try to pick up adjacent packages
+		action = pickup();
+		if (action != null) return action;
+
 		// then explore for new packages
 		action = explore();
 		if (action != null) return action;
@@ -181,20 +172,26 @@ public class PacAgent extends Agent
 
 	Action communicate()
 	{
-		// TODO if new goal, broadcast that
+		// if goal achieved, broadcast discoveries (including cleared goal)
+		// TODO should this only be when we have picked up a package?
+		if (goal != null && world.at(goal) == World.Space.CLEAR)
+		{
+			goal = null;
 
-		// TODO if goal achieved, broadcast discoveries (including cleared goal)
+			Message message = new Message();
+			// TODO add where we're holding the package
+
+			// discoveries probably contains the (now clear) package location
+			flushDiscoveries(message);
+
+			return new Say(message.toString());
+		}
 
 		// if we've discovered a lot, broadcast that
 		if (discoveries.size() >= discovery_share_thresh)
 		{
-			for (Coord c : discoveries)
-				shared_discoveries.add(c);
-
 			Message message = new Message();
-			message.coords = new ArrayList<Coord>();
-			for (Coord c : discoveries)
-				message.coords.add(c);
+			flushDiscoveries(message);
 
 			return new Say(message.toString());
 		}
@@ -213,13 +210,33 @@ public class PacAgent extends Agent
 		return null;
 	}
 
+	Action pickup()
+	{
+		if (possible_package != -1 && bumped)
+		{
+			// XXX it *must* be a package, since the other agents should avoid our goal
+			possible_package = -1;
+			return new Pickup(possible_package);
+		}
+
+		return null;
+	}
+
 	Action explore()
 	{
 		// if no goal, set goal
 		if (goal == null)
 		{
-			new_goal = true;
 			goal = world.nearestUnknown(pos);
+
+			Message message = new Message();
+			// broadcast our goal and current position
+			message.goal = goal;
+			message.pos = pos;
+			// throw in discoveries because why not?
+			flushDiscoveries(message);
+
+			return new Say(message.toString());
 		}
 
 		// get direction to goal
@@ -227,6 +244,7 @@ public class PacAgent extends Agent
 		Coord next = pos.shift(dir);
 
 		// if obstacle, avoid it
+		// TODO need proper path finding around other bots and unknown spaces in range
 		for (Coord o : obstacles)
 		{
 			if (o == next)
@@ -242,11 +260,6 @@ public class PacAgent extends Agent
 			}
 		}
 
-		// TODO when to pick up package?
-		if (possible_package != -1)
-		{
-		}
-
 		// if we're right next to the unknown space, it could be a package
 		if (goal == next)
 		{
@@ -254,5 +267,17 @@ public class PacAgent extends Agent
 		}
 
 		return new Move(dir);
+	}
+
+	// add all discoveries to the message (and to shared_disc)
+	void flushDiscoveries(Message message)
+	{
+		if (discoveries.size() == 0) return;
+		message.coords = new ArrayList<Coord>();
+		for (Coord c : discoveries)
+		{
+			message.coords.add(c);
+			shared_discoveries.add(c);
+		}
 	}
 }
