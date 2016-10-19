@@ -178,6 +178,9 @@ public class PacAgent extends Agent
 		{
 			System.out.println("other" + agent.id + " goal " + agent.goal);
 		}
+
+		System.out.println(id);
+		System.out.println(world);
 	}
 
 	// simple subsumption architecture
