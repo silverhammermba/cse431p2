@@ -95,6 +95,12 @@ public class PacAgent extends Agent
 				otherAgent(message.id).goal = message.goal;
 				otherAgent(message.id).pos = message.pos;
 			}
+
+			if (message.holding != -1 && !id.equals(message.id))
+			{
+				otherAgent(message.id).holding = message.holding;
+				// other agent's goal should be null, this will be updated via shared_discoveries
+			}
 		}
 
 		resolveGoalConflicts();
@@ -162,7 +168,7 @@ public class PacAgent extends Agent
 			// remove public knowledge from our list of discoveries
 			discoveries.remove(c);
 
-			// and also from other agents' goals
+			// and also from agents' goals
 			for (OtherAgent agent : agents.values())
 				if (c.equals(agent.goal)) agent.goal = null;
 		}
@@ -201,25 +207,17 @@ public class PacAgent extends Agent
 
 	Action communicate()
 	{
-		// if goal achieved, broadcast discoveries (including cleared goal)
-		// TODO should this only be when we have picked up a package?
-		if (goal != null && world.at(goal) == World.Space.CLEAR)
+		// if goal achieved, broadcast discoveries (including cleared goal) and how we're holding the package
+		if (goal != null && held_package != null)
 		{
+			world.clear(goal.x, goal.y);
+			discoveries.add(goal);
+
 			goal = null;
 
 			Message message = new Message();
-			// TODO add where we're holding the package
-
-			// discoveries probably contains the (now clear) package location
-			flushDiscoveries(message);
-
-			return new Say(message.toString());
-		}
-
-		// if we've discovered a lot, broadcast that
-		if (discoveries.size() >= discovery_share_thresh)
-		{
-			Message message = new Message();
+			message.id = id;
+			message.holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
 			flushDiscoveries(message);
 
 			return new Say(message.toString());
@@ -246,8 +244,9 @@ public class PacAgent extends Agent
 		if (possible_package != -1 && bumped)
 		{
 			// XXX it *must* be a package, since the other agents should avoid our goal
+			int dir = possible_package;
 			possible_package = -1;
-			return new Pickup(possible_package);
+			return new Pickup(dir);
 		}
 
 		return null;
@@ -255,6 +254,13 @@ public class PacAgent extends Agent
 
 	Action explore()
 	{
+		// if we reached our goal, it was just an empty space
+		if (pos.equals(goal))
+		{
+			discoveries.add(goal);
+			goal = null;
+		}
+
 		// if no goal, set goal
 		if (goal == null)
 		{
@@ -277,26 +283,11 @@ public class PacAgent extends Agent
 
 		// get direction to goal
 		int dir = pos.dirTo(goal);
+
+		System.out.println(id + " pos " + pos + " goal " + goal);
 		Coord next = pos.shift(dir);
 
-		// if obstacle, avoid it
-		// TODO need proper path finding around other bots and unknown spaces in range
-		/*
-		for (Coord o : obstacles)
-		{
-			if (o == next)
-			{
-				// always step to the left
-				switch (dir)
-				{
-					case Direction.WEST: return new Move(Direction.SOUTH);
-					case Direction.NORTH: return new Move(Direction.WEST);
-					case Direction.EAST: return new Move(Direction.NORTH);
-					case Direction.SOUTH: return new Move(Direction.EAST);
-				}
-			}
-		}
-		*/
+		// TODO need proper path finding around other agents and unknown spaces in range
 
 		// if we're right next to the unknown space, it could be a package
 		if (goal.equals(next))

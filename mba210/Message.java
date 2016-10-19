@@ -16,7 +16,14 @@ public class Message implements Serializable
 	public String id;
 	public Coord goal;
 	public Coord pos;
+	public int holding;
 	public List<Coord> coords;
+
+	public Message()
+	{
+		// not nullable, needs a default value
+		holding = -1;
+	}
 
 	// TODO can probably make fromString/toString more efficient
 	static Message fromString(String str)
