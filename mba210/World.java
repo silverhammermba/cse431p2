@@ -1,5 +1,8 @@
 package mba210;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class World
 {
@@ -27,6 +30,34 @@ public class World
 		grid[i][j] = Space.CLEAR;
 	}
 
+	public boolean in_bounds(int x, int y)
+	{
+		return x >= 0 && y >= 0 && x < size && y < size;
+	}
+
+	public Coord nearestUnknown(Coord c)
+	{
+		List<Coord> nearest = new ArrayList<Coord>();
+		int d = 0;
+
+		for (int i = 0; i < size; ++i)
+		{
+			for (int j = 0; j < size; ++j)
+			{
+				Coord g = new Coord(i, j);
+
+				if (grid[i][j] == Space.UNKNOWN && (nearest.size() == 0 || c.dist(g) < d))
+				{
+					nearest = new ArrayList<Coord>();
+					nearest.add(g);
+					d = c.dist(nearest.get(0));
+				}
+			}
+		}
+
+		return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
+	}
+
 	@Override
 	public String toString()
 	{
@@ -43,30 +74,5 @@ public class World
 			str += "\n";
 		}
 		return str;
-	}
-
-	public boolean in_bounds(int x, int y)
-	{
-		return x >= 0 && y >= 0 && x < size && y < size;
-	}
-
-	public Coord nearestUnknown(Coord c)
-	{
-		Coord n = null;
-		int d = 0;
-
-		for (int i = 0; i < size; ++i)
-		{
-			for (int j = 0; j < size; ++j)
-			{
-				if (grid[i][j] == Space.UNKNOWN && (n == null || c.dist(n) < d))
-				{
-					n = new Coord(i, j);
-					d = c.dist(n);
-				}
-			}
-		}
-
-		return n;
 	}
 }

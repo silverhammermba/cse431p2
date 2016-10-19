@@ -17,14 +17,14 @@ public class Coord
 
 	public Coord(Location l)
 	{
-		this.x = l.getX();
-		this.y = l.getY();
+		x = l.getX();
+		y = l.getY();
 	}
 
 	// get the (Manhattan) distance between two coords
 	public int dist(Coord c)
 	{
-		return Math.abs(this.x - c.x) + Math.abs(this.y - c.y);
+		return Math.abs(x - c.x) + Math.abs(y - c.y);
 	}
 
 	// constrain the coord to the rectangle with corners c1 and c2
@@ -64,6 +64,6 @@ public class Coord
 	@Override
 	public String toString()
 	{
-		return "(" + this.x + "," + this.y + ")";
+		return "(" + x + "," + y + ")";
 	}
 }
