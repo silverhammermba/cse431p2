@@ -75,8 +75,8 @@ public class PacAgent extends Agent
 				known[i][j] = false;
 
 		// start by assuming that everything around the agent is known to be clear
-		for (int i = Math.max(pos.x - vis_radius, 0); i < Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
-			for (int j = Math.max(pos.y - vis_radius, 0); j < Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
+		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
+			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
 				known[i][j] = true;
 
 		// anywhere we see a package is an area of uncertainty
@@ -87,7 +87,7 @@ public class PacAgent extends Agent
 
 			for (int i = -1; i <= 1; ++i)
 				for (int j = -1; j <= 1; ++j)
-					if (world.in_bounds(px + i, px + j))
+					if (world.in_bounds(px + i, py + j))
 						known[px + i][py + j] = false;
 		}
 
