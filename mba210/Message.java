@@ -13,6 +13,7 @@ import java.util.List;
 
 public class Message implements Serializable
 {
+	public String id;
 	public Coord goal;
 	public Coord pos;
 	public List<Coord> coords;

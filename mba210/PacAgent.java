@@ -16,9 +16,12 @@ import pacworld.Say;
 import pacworld.VisibleAgent;
 import pacworld.VisiblePackage;
 
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class PacAgent extends Agent
@@ -33,10 +36,10 @@ public class PacAgent extends Agent
 	World world;
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
-	Set<Coord> obstacles;
 	int possible_package;
 	VisiblePackage held_package;
 	boolean bumped;
+	Map<String, OtherAgent> agents;
 
 	public PacAgent(int id)
 	{
@@ -45,6 +48,7 @@ public class PacAgent extends Agent
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
 		possible_package = -1;
+		agents = new HashMap<String, OtherAgent>();
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -61,8 +65,6 @@ public class PacAgent extends Agent
 		// initialize the world map once we know the world size
 		if (world == null) world = new World(percept.getWorldSize());
 
-		obstacles = new HashSet<Coord>();
-
 		// copy some parts of the percept for convenience
 		held_package = percept.getHeldPackage();
 		bumped = percept.feelBump();
@@ -72,17 +74,30 @@ public class PacAgent extends Agent
 			messages.add(Message.fromString(message));
 		}
 
+		// update positions of visible agents (including this agent)
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
-			if (agent.getId() == id)
+			if (agent.getId().equals(id))
 			{
 				pos = new Coord(agent.getX(), agent.getY());
-				System.out.println(id + " is at " + pos);
 			}
 			else
-				// TODO take into account held packages
-				obstacles.add(new Coord(agent.getX(), agent.getY()));
+			{
+				otherAgent(agent.getId()).pos = new Coord(agent.getX(), agent.getY());
+			}
 		}
+
+		// update goals and positions transmitted by other agents
+		for (Message message : messages)
+		{
+			if (message.goal != null && !id.equals(message.id))
+			{
+				otherAgent(message.id).goal = message.goal;
+				otherAgent(message.id).pos = message.pos;
+			}
+		}
+
+		resolveGoalConflicts();
 
 		// what do we know about the world from this percept?
 		boolean known[][] = new boolean[world.getSize()][world.getSize()];
@@ -108,8 +123,8 @@ public class PacAgent extends Agent
 		}
 
 		// but anywhere we see an agent is certainly clear
-		for (VisibleAgent agent : percept.getVisAgents())
-			known[agent.getX()][agent.getY()] = true;
+		for (OtherAgent agent : agents.values())
+			known[agent.pos.x][agent.pos.y] = true;
 
 		// we also know clear spaces that other agents tell us
 		// anything we receive goes in shared_discoveries
@@ -141,8 +156,22 @@ public class PacAgent extends Agent
 				}
 			}
 		}
-		// and update our list of discoveries (remove things that are already public knowledge)
-		for (Coord c : shared_discoveries) discoveries.remove(c);
+
+		for (Coord c : shared_discoveries)
+		{
+			// remove public knowledge from our list of discoveries
+			discoveries.remove(c);
+
+			// and also from other agents' goals
+			for (OtherAgent agent : agents.values())
+				if (c.equals(agent.goal)) agent.goal = null;
+		}
+
+		System.out.println(id + " goal " + goal);
+		for (OtherAgent agent : agents.values())
+		{
+			System.out.println("other" + agent.id + " goal " + agent.goal);
+		}
 	}
 
 	// simple subsumption architecture
@@ -207,6 +236,8 @@ public class PacAgent extends Agent
 
 		// TODO if obstacle, avoid it
 
+		if (held_package != null) return new Idle();
+
 		return null;
 	}
 
@@ -227,10 +258,15 @@ public class PacAgent extends Agent
 		// if no goal, set goal
 		if (goal == null)
 		{
-			goal = world.nearestUnknown(pos);
+			Set<Coord> og = new HashSet<Coord>();
+			for (OtherAgent agent : agents.values())
+				if (agent.goal != null) og.add(agent.goal);
+
+			goal = world.nearestUnknown(pos, og);
 
 			Message message = new Message();
 			// broadcast our goal and current position
+			message.id = id;
 			message.goal = goal;
 			message.pos = pos;
 			// throw in discoveries because why not?
@@ -245,6 +281,7 @@ public class PacAgent extends Agent
 
 		// if obstacle, avoid it
 		// TODO need proper path finding around other bots and unknown spaces in range
+		/*
 		for (Coord o : obstacles)
 		{
 			if (o == next)
@@ -259,9 +296,10 @@ public class PacAgent extends Agent
 				}
 			}
 		}
+		*/
 
 		// if we're right next to the unknown space, it could be a package
-		if (goal == next)
+		if (goal.equals(next))
 		{
 			possible_package = dir;
 		}
@@ -278,6 +316,56 @@ public class PacAgent extends Agent
 		{
 			message.coords.add(c);
 			shared_discoveries.add(c);
+		}
+	}
+
+	OtherAgent otherAgent(String id)
+	{
+		if (!agents.containsKey(id)) agents.put(id, new OtherAgent(id));
+		return agents.get(id);
+	}
+
+	/* After agents have broadcasted their goals, there is a deterministic way
+	 * to determine which goals are assigned to which agent.
+	 * This resolution is performed independently by each agent so that they
+	 * all get the same result and are aware of each other's goals.
+	 */
+	void resolveGoalConflicts()
+	{
+		// first collect all goals among the agents
+		Set<Coord> goals = new HashSet<Coord>();
+		if (goal != null) goals.add(goal);
+		for (OtherAgent agent : agents.values())
+			if (agent.goal != null) goals.add(agent.goal);
+
+		for (Coord g : goals)
+		{
+			// get the positions of all agents with that goal
+			List<Coord> poss = new ArrayList<Coord>();
+			if (g.equals(goal)) poss.add(pos);
+			for (OtherAgent agent : agents.values())
+				if (g.equals(agent.goal)) poss.add(agent.pos);
+
+			// no conflict, nothing to do
+			if (poss.size() == 1) continue;
+			System.out.println(id + " resolving conflict for goal " + g);
+
+			// sort positions by distance to the goal (breaking ties in an arbitrary but deterministic way)
+			poss.sort((c1, c2) -> {
+				if (c1.dist(g) < c2.dist(g)) return -1;
+				if (c1.dist(g) > c2.dist(g)) return 1;
+				if (c1.x < c2.x) return -1;
+				if (c1.x > c2.x) return 1;
+				if (c1.y < c2.y) return -1;
+				if (c1.y > c2.y) return 1;
+				// shouldn't reach here
+				return 0;
+			});
+
+			// clear goals of all but the one closest agent
+			if (goal.equals(g) && !pos.equals(poss.get(0))) goal = null;
+			for (OtherAgent agent : agents.values())
+				if (agent.goal.equals(g) && !agent.pos.equals(poss.get(0))) agent.goal = null;
 		}
 	}
 }

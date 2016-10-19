@@ -2,6 +2,7 @@ package mba210;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class World
@@ -41,8 +42,7 @@ public class World
 		return x >= 0 && y >= 0 && x < size && y < size;
 	}
 
-	// TODO take list of forbidden coords (where other Agents are already exploring)
-	public Coord nearestUnknown(Coord c)
+	public Coord nearestUnknown(Coord c, Set<Coord> avoid)
 	{
 		List<Coord> nearest = new ArrayList<Coord>();
 		int d = 0;
@@ -52,6 +52,8 @@ public class World
 			for (int j = 0; j < size; ++j)
 			{
 				Coord g = new Coord(i, j);
+
+				if (avoid.contains(g)) continue;
 
 				if (grid[i][j] == Space.UNKNOWN && (nearest.size() == 0 || c.dist(g) < d))
 				{
