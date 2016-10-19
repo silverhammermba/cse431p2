@@ -7,13 +7,14 @@ import java.util.concurrent.ThreadLocalRandom;
 public class World
 {
 	public enum Space { UNKNOWN, CLEAR };
+
 	int size;
 	Space grid[][];
 
 	public World(int size)
 	{
 		this.size = size;
-		this.grid = new Space[size][size];
+		grid = new Space[size][size];
 
 		for (int i = 0; i < size; ++i)
 			for (int j = 0; j < size; ++j)
@@ -23,6 +24,11 @@ public class World
 	public int getSize()
 	{
 		return size;
+	}
+
+	public Space at(Coord c)
+	{
+		return grid[c.x][c.y];
 	}
 
 	public void clear(int i, int j)

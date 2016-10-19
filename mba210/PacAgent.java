@@ -138,6 +138,11 @@ public class PacAgent extends Agent
 		// and update our list of discoveries (remove things that are already public knowledge)
 		for (Coord c : shared_discoveries) discoveries.remove(c);
 
+		if (goal != null && world.at(goal) == World.Space.CLEAR)
+		{
+			goal = null;
+		}
+
 		System.out.println(id);
 		System.out.println(world);
 	}
