@@ -74,6 +74,9 @@ public class PacAgent extends Agent
 			messages.add(Message.fromString(message));
 		}
 
+		// reset other agent positions, we only care about current positions
+		for (OtherAgent agent : agents.values()) agent.pos = null;
+
 		// update positions of visible agents (including this agent)
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
@@ -130,7 +133,8 @@ public class PacAgent extends Agent
 
 		// but anywhere we see an agent is certainly clear
 		for (OtherAgent agent : agents.values())
-			known[agent.pos.x][agent.pos.y] = true;
+			if (agent.pos != null)
+				known[agent.pos.x][agent.pos.y] = true;
 
 		// we also know clear spaces that other agents tell us
 		// anything we receive goes in shared_discoveries
@@ -170,7 +174,8 @@ public class PacAgent extends Agent
 
 			// and also from agents' goals
 			for (OtherAgent agent : agents.values())
-				if (c.equals(agent.goal)) agent.goal = null;
+				if (c.equals(agent.goal))
+					agent.goal = null;
 		}
 
 		System.out.println(id + " goal " + goal);
@@ -231,6 +236,10 @@ public class PacAgent extends Agent
 
 	Action deliver()
 	{
+		if (held_package == null) return null;
+
+		int holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
+
 		// TODO if we're at the goal, drop the package
 
 		// TODO if we're holding a package, determine direction to goal
@@ -267,11 +276,13 @@ public class PacAgent extends Agent
 		// if no goal, set goal
 		if (goal == null)
 		{
-			Set<Coord> og = new HashSet<Coord>();
+			// get other agents' goals so we can avoid them
+			Set<Coord> avoid = new HashSet<Coord>();
 			for (OtherAgent agent : agents.values())
-				if (agent.goal != null) og.add(agent.goal);
+				if (agent.goal != null)
+					avoid.add(agent.goal);
 
-			goal = world.nearestUnknown(pos, og);
+			goal = world.nearestUnknown(pos, avoid);
 
 			Message message = new Message();
 			// broadcast our goal and current position
@@ -284,13 +295,44 @@ public class PacAgent extends Agent
 			return new Say(message.toString());
 		}
 
-		// get direction to goal
-		int dir = pos.dirTo(goal);
-
 		System.out.println(id + " pos " + pos + " goal " + goal);
-		Coord next = pos.shift(dir);
 
-		// TODO need proper path finding around other agents and unknown spaces in range
+		// get direction to goal
+
+		// treat nearby unknown spaces as obstacles
+		Set<Coord> obstacles = new HashSet<Coord>();
+		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
+		{
+			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
+			{
+				Coord c = new Coord(i, j);
+				if (!c.equals(goal) && world.at(c) == World.Space.UNKNOWN)
+					obstacles.add(c);
+			}
+		}
+		// treat other agents, their packages, and goals as obstacles
+		for (OtherAgent agent : agents.values())
+		{
+			if (agent.pos != null)
+			{
+				obstacles.add(agent.pos);
+				if (agent.holding != -1) obstacles.add(agent.pos.shift(agent.holding));
+			}
+			if (agent.goal != null) obstacles.add(agent.goal);
+		}
+
+		// XXX we should not be holding a package at this point
+		int dir = world.shortestPathDir(pos, goal, -1, obstacles);
+
+		if (dir == -1)
+		{
+			// TODO better way to handle this?
+			System.out.println(id + ": no path from " + pos + " to " + goal);
+			goal = null;
+			return new Idle();
+		}
+
+		Coord next = pos.shift(dir);
 
 		// if we're right next to the unknown space, it could be a package
 		if (goal.equals(next))
@@ -313,6 +355,7 @@ public class PacAgent extends Agent
 		}
 	}
 
+	// get the OtherAgent for the id, initializing a new empty agent if necessary
 	OtherAgent otherAgent(String id)
 	{
 		if (!agents.containsKey(id)) agents.put(id, new OtherAgent(id));

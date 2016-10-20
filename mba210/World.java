@@ -30,9 +30,14 @@ public class World
 		return size;
 	}
 
+	public Space at(int x, int y)
+	{
+		return grid[x][y];
+	}
+
 	public Space at(Coord c)
 	{
-		return grid[c.x][c.y];
+		return at(c.x, c.y);
 	}
 
 	public void clear(int i, int j)
@@ -45,6 +50,8 @@ public class World
 		return x >= 0 && y >= 0 && x < size && y < size;
 	}
 
+	// find the nearest unknown space to c, excluding any spaces in avoid
+	// XXX doesn't take into account obstacles, but eh...
 	public Coord nearestUnknown(Coord c, Set<Coord> avoid)
 	{
 		List<Coord> nearest = new ArrayList<Coord>();
@@ -72,6 +79,7 @@ public class World
 		return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
 	}
 
+	// for doing A* path finding
 	class Node
 	{
 		public Coord pos;
@@ -93,24 +101,17 @@ public class World
 	 */
 	public int shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles)
 	{
+		// create grid of Nodes
 		Node nodes[][] = new Node[size][size];
-
 		for (int i = 0; i < size; ++i)
-		{
 			for (int j = 0; j < size; ++j)
-			{
 				nodes[i][j] = new Node(i, j);
-			}
-		}
 
-		nodes[start.x][start.y].dist = 0;
-		nodes[start.x][start.y].score = start.dist(end);
-
+		// indicate obstacles
 		for (Coord o : obstacles)
-		{
 			nodes[o.x][o.y].obstacle = true;
-		}
 
+		// get relative position of the held object
 		int dx = 0;
 		int dy = 0;
 		if (hold != -1)
@@ -118,6 +119,10 @@ public class World
 			dx = Direction.DELTA_X[hold];
 			dy = Direction.DELTA_Y[hold];
 		}
+
+		// set up starting node
+		nodes[start.x][start.y].dist = 0;
+		nodes[start.x][start.y].score = start.dist(end);
 
 		Set<Node> frontier = new HashSet<Node>();
 		Set<Node> visited = new HashSet<Node>();
@@ -131,22 +136,22 @@ public class World
 				if (c == null || n.score < c.score)
 					c = n;
 
+			// if we have reached the end, trace backward and find the first move to make
 			if (c.pos.equals(end))
 			{
-				while (!c.pred.equals(start))
-					c = nodes[c.pred.x][c.pred.x];
-
+				while (!start.equals(c.pred)) c = nodes[c.pred.x][c.pred.y];
 				return start.dirTo(c.pos);
 			}
 
 			frontier.remove(c);
 			visited.add(c);
 
+			// get neighbors (accounting for the held object stopping us from going to the edge)
 			List<Node> neighbors = new ArrayList<Node>();
-			if (c.pos.x + dx < size - 1) neighbors.add(nodes[c.pos.x + 1][c.pos.y]);
-			if (c.pos.x + dx > 0) neighbors.add(nodes[c.pos.x - 1][c.pos.y]);
-			if (c.pos.y + dx < size - 1) neighbors.add(nodes[c.pos.x][c.pos.y + 1]);
-			if (c.pos.y + dx > 0) neighbors.add(nodes[c.pos.x][c.pos.y - 1]);
+			if (c.pos.x < size - 1 && c.pos.x + dx < size - 1) neighbors.add(nodes[c.pos.x + 1][c.pos.y]);
+			if (c.pos.x > 0 && c.pos.x + dx > 0) neighbors.add(nodes[c.pos.x - 1][c.pos.y]);
+			if (c.pos.y < size - 1 && c.pos.y + dx < size - 1) neighbors.add(nodes[c.pos.x][c.pos.y + 1]);
+			if (c.pos.y > 0 && c.pos.y + dx > 0) neighbors.add(nodes[c.pos.x][c.pos.y - 1]);
 
 			for (Node n : neighbors)
 			{
@@ -155,11 +160,13 @@ public class World
 
 				int new_dist = c.dist + 1;
 
+				// add neighbor to frontier (unless we already have a shorter path to it)
 				if (!frontier.contains(n))
 					frontier.add(n);
 				else if (new_dist >= n.dist)
 					continue;
 
+				// update neighbor dist/score
 				n.pred = c.pos;
 				n.dist = new_dist;
 				n.score = new_dist + n.pos.dist(end);
