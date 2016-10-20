@@ -108,6 +108,7 @@ public class World
 				nodes[i][j] = new Node(i, j);
 
 		// indicate obstacles
+		// TODO can be out of bounds???
 		for (Coord o : obstacles)
 			nodes[o.x][o.y].obstacle = true;
 
@@ -150,8 +151,8 @@ public class World
 			List<Node> neighbors = new ArrayList<Node>();
 			if (c.pos.x < size - 1 && c.pos.x + dx < size - 1) neighbors.add(nodes[c.pos.x + 1][c.pos.y]);
 			if (c.pos.x > 0 && c.pos.x + dx > 0) neighbors.add(nodes[c.pos.x - 1][c.pos.y]);
-			if (c.pos.y < size - 1 && c.pos.y + dx < size - 1) neighbors.add(nodes[c.pos.x][c.pos.y + 1]);
-			if (c.pos.y > 0 && c.pos.y + dx > 0) neighbors.add(nodes[c.pos.x][c.pos.y - 1]);
+			if (c.pos.y < size - 1 && c.pos.y + dy < size - 1) neighbors.add(nodes[c.pos.x][c.pos.y + 1]);
+			if (c.pos.y > 0 && c.pos.y + dy > 0) neighbors.add(nodes[c.pos.x][c.pos.y - 1]);
 
 			for (Node n : neighbors)
 			{
@@ -187,7 +188,7 @@ public class World
 				if (grid[i][j] == Space.UNKNOWN)
 					str += "?";
 				else
-					str += " ";
+					str += ".";
 			}
 			str += "\n";
 		}

@@ -238,17 +238,45 @@ public class PacAgent extends Agent
 	{
 		if (held_package == null) return null;
 
-		int holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
+		Coord dropoff = new Coord(held_package.getDestX(), held_package.getDestY());
 
-		// TODO if we're at the goal, drop the package
+		// drop off package
+		// TODO broadcast that we aren't holding anything
+		if (pos.dist(dropoff) == 1)
+			return new Dropoff(pos.dirTo(dropoff));
 
-		// TODO if we're holding a package, determine direction to goal
+		// treat nearby unknown spaces as obstacles
+		Set<Coord> obstacles = new HashSet<Coord>();
+		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
+		{
+			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
+			{
+				Coord c = new Coord(i, j);
+				if (world.at(c) == World.Space.UNKNOWN)
+					obstacles.add(c);
+			}
+		}
+		// treat other agents, their packages, and goals as obstacles
+		for (OtherAgent agent : agents.values())
+		{
+			if (agent.pos != null)
+			{
+				obstacles.add(agent.pos);
+				if (agent.holding != -1) obstacles.add(agent.pos.shift(agent.holding));
+			}
+			if (agent.goal != null) obstacles.add(agent.goal);
+		}
 
-		// TODO if obstacle, avoid it
+		// go to the dropoff
+		int dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles);
 
-		if (held_package != null) return new Idle();
+		if (dir == -1)
+		{
+			System.err.println(id + ": no path from " + pos + " to dropoff " + dropoff);
+			return new Idle();
+		}
 
-		return null;
+		return new Move(dir);
 	}
 
 	Action pickup()
