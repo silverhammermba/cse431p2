@@ -1,17 +1,9 @@
 package mba210;
 
-import java.io.InputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
 
-public class Message implements Serializable
+public class Message
 {
 	public String id;
 	public Coord goal;
@@ -29,42 +21,83 @@ public class Message implements Serializable
 	// TODO can probably make fromString/toString more efficient
 	static Message fromString(String str)
 	{
-		Message message;
+		Message message = new Message();
 
-		try
+		for (int i = 0; i < str.length();)
 		{
-			InputStream sis = new ByteArrayInputStream(Base64.getDecoder().decode(str));
-			ObjectInputStream ois = new ObjectInputStream(sis);
-			message = (Message)ois.readObject();
-			ois.close();
-			sis.close();
-		}
-		catch (Exception ex)
-		{
-			System.err.println("Exception during message deserialization: " + ex);
-			message = new Message();
+			switch (str.charAt(i))
+			{
+				case 'I':
+					int end = i + 1;
+					for (; str.charAt(end) != '~'; ++end);
+					message.id = str.substring(i + 1, end);
+					i = end + 1;
+					break;
+				case 'G':
+					message.goal = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
+					i = i + 3;
+					break;
+				case 'P':
+					message.pos = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
+					i = i + 3;
+					break;
+				case 'H':
+					message.holding = decodeInt(str.charAt(i + 1));
+					i = i + 2;
+					break;
+				case 'C':
+					message.coords = new ArrayList<Coord>();
+					for (i = i + 1; i < str.length(); i += 2)
+						message.coords.add(new Coord(decodeInt(str.charAt(i)), decodeInt(str.charAt(i + 1))));
+					break;
+				default:
+					System.err.println("Unrecognized identifier while parsing message " + str.charAt(i) + ": " + str);
+			}
 		}
 
 		return message;
 	}
 
+	String encodeInt(int c)
+	{
+		return "" + (char)('!' + c);
+	}
+
+	static int decodeInt(char c)
+	{
+		return c - '!';
+	}
+
+	String encodeCoord(Coord c)
+	{
+		return encodeInt(c.x) + encodeInt(c.y);
+	}
+
 	public String toString()
 	{
-		String str;
+		String str = "";
 
-		try
+		if (id != null)
 		{
-			ByteArrayOutputStream sos = new ByteArrayOutputStream();
-			ObjectOutputStream oos = new ObjectOutputStream(sos);
-			oos.writeObject(this);
-			str = Base64.getEncoder().encodeToString(sos.toByteArray());
-			oos.close();
-			sos.close();
+			str += "I" + id + "~";
 		}
-		catch (Exception ex)
+		if (goal != null)
 		{
-			System.err.println("Exception during message serialization: " + ex);
-			str = "";
+			str += "G" + encodeCoord(goal);
+		}
+		if (pos != null)
+		{
+			str += "P" + encodeCoord(pos);
+		}
+		if (holding != -2)
+		{
+			str += "H" + encodeInt(holding);
+		}
+		if (coords != null && coords.size() > 0)
+		{
+			str += "C";
+			for (Coord c : coords)
+				str += encodeCoord(c);
 		}
 
 		return str;
