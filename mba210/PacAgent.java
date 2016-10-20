@@ -334,6 +334,8 @@ public class PacAgent extends Agent
 
 			goal = world.nearestUnknown(pos, avoid);
 
+			if (goal == null) return new Idle();
+
 			Message message = new Message();
 			// broadcast our goal and current position
 			message.id = id;
@@ -384,10 +386,7 @@ public class PacAgent extends Agent
 		Coord next = pos.shift(dir);
 
 		// if we're right next to the unknown space, it could be a package
-		if (goal.equals(next))
-		{
-			possible_package = dir;
-		}
+		if (goal.equals(next)) possible_package = dir;
 
 		return new Move(dir);
 	}

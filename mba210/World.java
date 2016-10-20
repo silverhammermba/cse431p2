@@ -143,8 +143,11 @@ public class World
 					c = n;
 
 			// if we have reached the end, trace backward and find the first move to make
-			if (c.pos.dist(end) <= end_dist)
+			if (c.pos.dist(end) == end_dist)
 			{
+				// indicates that we're already in the right position (shouldn't really be used anywhere)
+				if (c.pos.equals(start)) return -2;
+
 				while (!start.equals(c.pred)) c = nodes[c.pred.x][c.pred.y];
 				return start.dirTo(c.pos);
 			}
