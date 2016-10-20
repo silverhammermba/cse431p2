@@ -104,7 +104,7 @@ public class World
 	/* get the direction to move in on the shortest path from start to end,
 	 * taking into account obstacles and a possibly held object
 	 */
-	public int shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles)
+	public int shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
 	{
 		// create grid of Nodes
 		Node nodes[][] = new Node[size][size];
@@ -143,7 +143,7 @@ public class World
 					c = n;
 
 			// if we have reached the end, trace backward and find the first move to make
-			if (c.pos.equals(end))
+			if (c.pos.dist(end) <= end_dist)
 			{
 				while (!start.equals(c.pred)) c = nodes[c.pred.x][c.pred.y];
 				return start.dirTo(c.pos);
@@ -179,6 +179,39 @@ public class World
 			}
 		}
 
+		String str = "";
+		for (int j = 0; j < size; ++j)
+		{
+			for (int i = 0; i < size; ++i)
+			{
+				if (nodes[i][j].pos.equals(end))
+					str += "G";
+				else if (nodes[i][j].pos.equals(start))
+					str += "S";
+				else if (nodes[i][j].pred == null)
+					str += ".";
+				else switch (nodes[i][j].pos.dirTo(nodes[i][j].pred))
+				{
+					case Direction.NORTH:
+						str += "^";
+						break;
+					case Direction.SOUTH:
+						str += "v";
+						break;
+					case Direction.EAST:
+						str += ">";
+						break;
+					case Direction.WEST:
+						str += "<";
+						break;
+				}
+			}
+			str += "\n";
+		}
+		System.out.println(str);
+
+		// TODO it is sometimes posisble that an agent can't find a path when
+		// another agent is *near* its goal
 		return -1;
 	}
 

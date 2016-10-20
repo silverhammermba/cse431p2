@@ -67,6 +67,8 @@ public class PacAgent extends Agent
 		// initialize the world map once we know the world size
 		if (world == null) world = new World(percept.getWorldSize());
 
+		// TODO does this cause on off-by-one error because the messages are from last step?
+
 		// copy some parts of the percept for convenience
 		held_package = percept.getHeldPackage();
 		bumped = percept.feelBump();
@@ -215,6 +217,7 @@ public class PacAgent extends Agent
 		return new Idle();
 	}
 
+	// TODO if a bunch of agents have nothing to do at the end, they tend to communicate repeatedly
 	Action communicate()
 	{
 		// if we've picked up or dropped off a package, broadcast discoveries
@@ -285,7 +288,7 @@ public class PacAgent extends Agent
 		}
 
 		// go to the dropoff
-		int dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles);
+		int dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
 
 		if (dir == -1)
 		{
@@ -321,6 +324,8 @@ public class PacAgent extends Agent
 		// if no goal, set goal
 		if (goal == null)
 		{
+			// TODO it should be possible to steal goals if you are closer than they are
+
 			// get other agents' goals so we can avoid them
 			Set<Coord> avoid = new HashSet<Coord>();
 			for (OtherAgent agent : agents.values())
@@ -367,7 +372,7 @@ public class PacAgent extends Agent
 		}
 
 		// XXX we should not be holding a package at this point
-		int dir = world.shortestPathDir(pos, goal, -1, obstacles);
+		int dir = world.shortestPathDir(pos, goal, -1, obstacles, 0);
 
 		if (dir == -1)
 		{
