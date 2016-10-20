@@ -50,6 +50,11 @@ public class World
 		return x >= 0 && y >= 0 && x < size && y < size;
 	}
 
+	public boolean in_bounds(Coord c)
+	{
+		return in_bounds(c.x, c.y);
+	}
+
 	// find the nearest unknown space to c, excluding any spaces in avoid
 	// XXX doesn't take into account obstacles, but eh...
 	public Coord nearestUnknown(Coord c, Set<Coord> avoid)

@@ -1,5 +1,7 @@
 package mba210;
 
+import pacworld.Direction;
+
 public class OtherAgent
 {
 	public final String id;
@@ -13,5 +15,26 @@ public class OtherAgent
 		pos = null;
 		goal = null;
 		holding = -1;
+	}
+
+	public String toString()
+	{
+		String str = new String(id);
+		str += "\npos: ";
+		if (pos == null)
+			str += "unknown";
+		else
+			str += pos.toString();
+		str += "\ngoal: ";
+		if (goal == null)
+			str += "none";
+		else
+			str += goal.toString();
+		str += "\nholding: ";
+		if (holding == -1)
+			str += "nothing";
+		else
+			str += Direction.toString(holding);
+		return str;
 	}
 }

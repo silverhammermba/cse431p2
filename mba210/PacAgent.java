@@ -39,6 +39,7 @@ public class PacAgent extends Agent
 	int possible_package;
 	VisiblePackage held_package;
 	boolean bumped;
+	boolean delivered;
 	Map<String, OtherAgent> agents;
 
 	public PacAgent(int id)
@@ -49,6 +50,7 @@ public class PacAgent extends Agent
 		shared_discoveries = new HashSet<Coord>();
 		possible_package = -1;
 		agents = new HashMap<String, OtherAgent>();
+		delivered = false;
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -99,7 +101,7 @@ public class PacAgent extends Agent
 				otherAgent(message.id).pos = message.pos;
 			}
 
-			if (message.holding != -1 && !id.equals(message.id))
+			if (message.holding != -2 && !id.equals(message.id))
 			{
 				otherAgent(message.id).holding = message.holding;
 				// other agent's goal should be null, this will be updated via shared_discoveries
@@ -181,7 +183,7 @@ public class PacAgent extends Agent
 		System.out.println(id + " goal " + goal);
 		for (OtherAgent agent : agents.values())
 		{
-			System.out.println("other" + agent.id + " goal " + agent.goal);
+			System.out.println(agent);
 		}
 
 		System.out.println(id);
@@ -215,17 +217,25 @@ public class PacAgent extends Agent
 
 	Action communicate()
 	{
-		// if goal achieved, broadcast discoveries (including cleared goal) and how we're holding the package
-		if (goal != null && held_package != null)
+		// if we've picked up or dropped off a package, broadcast discoveries
+		// and indicate how we are holding a package
+		if ((goal != null && held_package != null) || delivered)
 		{
-			world.clear(goal.x, goal.y);
-			discoveries.add(goal);
+			if (goal != null)
+			{
+				world.clear(goal.x, goal.y);
+				discoveries.add(goal);
+			}
 
 			goal = null;
+			delivered = false;
 
 			Message message = new Message();
 			message.id = id;
-			message.holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
+			if (held_package == null)
+				message.holding = -1;
+			else
+				message.holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
 			flushDiscoveries(message);
 
 			return new Say(message.toString());
@@ -241,9 +251,11 @@ public class PacAgent extends Agent
 		Coord dropoff = new Coord(held_package.getDestX(), held_package.getDestY());
 
 		// drop off package
-		// TODO broadcast that we aren't holding anything
 		if (pos.dist(dropoff) == 1)
+		{
+			delivered = true;
 			return new Dropoff(pos.dirTo(dropoff));
+		}
 
 		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = new HashSet<Coord>();
@@ -262,9 +274,14 @@ public class PacAgent extends Agent
 			if (agent.pos != null)
 			{
 				obstacles.add(agent.pos);
-				if (agent.holding != -1) obstacles.add(agent.pos.shift(agent.holding));
+				if (agent.holding != -1)
+				{
+					Coord c = agent.pos.shift(agent.holding);
+					obstacles.add(c);
+				}
 			}
-			if (agent.goal != null) obstacles.add(agent.goal);
+			if (agent.goal != null)
+				obstacles.add(agent.goal);
 		}
 
 		// go to the dropoff
@@ -355,7 +372,6 @@ public class PacAgent extends Agent
 		if (dir == -1)
 		{
 			// TODO better way to handle this?
-			System.out.println(id + ": no path from " + pos + " to " + goal);
 			goal = null;
 			return new Idle();
 		}

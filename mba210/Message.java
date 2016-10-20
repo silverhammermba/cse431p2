@@ -22,7 +22,8 @@ public class Message implements Serializable
 	public Message()
 	{
 		// not nullable, needs a default value
-		holding = -1;
+		// -1 means "not holding anything", so use -2
+		holding = -2;
 	}
 
 	// TODO can probably make fromString/toString more efficient
