@@ -8,6 +8,7 @@ public class Message
 	public String id;
 	public Coord goal;
 	public Coord pos;
+	public Coord dropped_package;
 	public int holding;
 	public List<Coord> coords;
 
@@ -18,7 +19,6 @@ public class Message
 		holding = -2;
 	}
 
-	// TODO can probably make fromString/toString more efficient
 	static Message fromString(String str)
 	{
 		Message message = new Message();
@@ -39,6 +39,10 @@ public class Message
 					break;
 				case 'P':
 					message.pos = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
+					i = i + 3;
+					break;
+				case 'D':
+					message.dropped_package = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
 					i = i + 3;
 					break;
 				case 'H':
@@ -84,6 +88,10 @@ public class Message
 		if (goal != null)
 		{
 			str += "G" + encodeCoord(goal);
+		}
+		if (dropped_package != null)
+		{
+			str += "D" + encodeCoord(dropped_package);
 		}
 		if (pos != null)
 		{

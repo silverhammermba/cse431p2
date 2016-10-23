@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class PacAgent extends Agent
 {
@@ -39,6 +40,9 @@ public class PacAgent extends Agent
 	World world;
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
+	Set<Coord> dropoffs;
+	List<Coord> dropped_packages;
+	Coord dropped_package;
 	int possible_package;
 	VisiblePackage held_package;
 	boolean bumped;
@@ -52,12 +56,15 @@ public class PacAgent extends Agent
 		goal = null;
 		holding = -1;
 
+		dropoffs = new HashSet<Coord>();
+		dropped_package = null;
 		vis_radius = PacPercept.VIS_RADIUS;
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
 		possible_package = -1;
 		agents = new HashMap<String, PacAgent>();
 		delivered = false;
+		dropped_packages = new ArrayList<Coord>();
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -120,6 +127,11 @@ public class PacAgent extends Agent
 				otherAgent(message.id).holding = message.holding;
 				// other agent's goal should be null, this will be updated via shared_discoveries
 			}
+
+			if (message.dropped_package != null)
+			{
+				dropped_packages.add(message.dropped_package);
+			}
 		}
 
 		resolveGoalConflicts();
@@ -140,6 +152,8 @@ public class PacAgent extends Agent
 		{
 			int px = pack.getX();
 			int py = pack.getY();
+
+			dropoffs.add(new Coord(pack.getDestX(), pack.getDestY()));
 
 			for (int i = -1; i <= 1; ++i)
 				for (int j = -1; j <= 1; ++j)
@@ -194,14 +208,15 @@ public class PacAgent extends Agent
 					agent.goal = null;
 		}
 
-		System.out.println(id + " goal " + goal);
+		System.out.println(this);
+		System.out.println("OTHER AGENTS:");
 		for (PacAgent agent : agents.values())
 		{
 			System.out.println(agent);
 		}
+		System.out.print("\n");
 
-		System.out.println(id);
-		System.out.println(world);
+		//System.out.println(world);
 	}
 
 	// simple subsumption architecture
@@ -229,9 +244,18 @@ public class PacAgent extends Agent
 		return new Idle();
 	}
 
-	// TODO if a bunch of agents have nothing to do at the end, they tend to communicate repeatedly
 	Action communicate()
 	{
+		if (dropped_package != null)
+		{
+			Message message = new Message();
+			message.dropped_package = dropped_package;
+			dropped_package = null;
+			flushDiscoveries(message);
+
+			return new Say(message.toString());
+		}
+
 		// if we've picked up or dropped off a package, broadcast discoveries
 		// and indicate how we are holding a package
 		if ((goal != null && held_package != null) || delivered)
@@ -283,6 +307,11 @@ public class PacAgent extends Agent
 					obstacles.add(c);
 			}
 		}
+		// navigate around dropped packages
+		for (Coord c : dropped_packages)
+		{
+			obstacles.add(c);
+		}
 		// treat other agents, their packages, and goals as obstacles
 		for (PacAgent agent : agents.values())
 		{
@@ -298,14 +327,46 @@ public class PacAgent extends Agent
 			if (agent.goal != null)
 				obstacles.add(agent.goal);
 		}
+		// other package's delivery spots are obstacles
+		for (Coord c : dropoffs)
+		{
+			if (!c.equals(new Coord(held_package.getDestX(), held_package.getDestY())))
+				obstacles.add(c);
+		}
 
 		// go to the dropoff
 		int dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
 
+		// if we can't get there
 		if (dir == -1)
 		{
-			System.err.println(id + ": no path from " + pos + " to dropoff " + dropoff);
-			return new Idle();
+			Coord c;
+
+			// try to find a clear space to drop the package
+			List<Coord> ds = new ArrayList<Coord>();
+			c = pos.shift(Direction.NORTH);
+			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			c = pos.shift(Direction.EAST);
+			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			c = pos.shift(Direction.SOUTH);
+			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			c = pos.shift(Direction.WEST);
+			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+
+			if (ds.size() == 0)
+			{
+				// TODO try to get to a clear space?
+				System.err.println(id + ": no path from " + pos + " to dropoff " + dropoff);
+				return new Idle();
+			}
+			else
+			{
+				// TODO it is possible that the agent will trap itself here
+				Coord dp = ds.get(ThreadLocalRandom.current().nextInt(0, ds.size()));
+				dropped_package = dp;
+				dropped_packages.add(dp);
+				return new Dropoff(pos.dirTo(dp));
+			}
 		}
 
 		return new Move(dir);
@@ -373,6 +434,11 @@ public class PacAgent extends Agent
 				if (!c.equals(goal) && world.at(c) == World.Space.UNKNOWN)
 					obstacles.add(c);
 			}
+		}
+		// avoid dropped packages
+		for (Coord c : dropped_packages)
+		{
+			obstacles.add(c);
 		}
 		// treat other agents, their packages, and goals as obstacles
 		for (PacAgent agent : agents.values())
