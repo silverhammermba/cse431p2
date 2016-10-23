@@ -407,7 +407,24 @@ public class PacAgent extends Agent
 
 			goal = world.nearestUnknown(pos, avoid);
 
-			if (goal == null) return new Idle();
+			if (goal == null)
+			{
+				Coord c = null;
+				for (Coord d : dropped_packages)
+				{
+					if (c == null || pos.dist(d) < pos.dist(c))
+						c = d;
+				}
+
+				if (c == null)
+				{
+					return new Idle();
+				}
+				else
+				{
+					goal = c;
+				}
+			}
 
 			Message message = new Message();
 			// broadcast our goal and current position
@@ -438,7 +455,7 @@ public class PacAgent extends Agent
 		// avoid dropped packages
 		for (Coord c : dropped_packages)
 		{
-			obstacles.add(c);
+			if (!c.equals(goal)) obstacles.add(c);
 		}
 		// treat other agents, their packages, and goals as obstacles
 		for (PacAgent agent : agents.values())
