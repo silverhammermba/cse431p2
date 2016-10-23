@@ -334,8 +334,12 @@ public class PacAgent extends Agent
 				obstacles.add(c);
 		}
 
-		// go to the dropoff
-		int dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
+		int dir = -1;
+		if (pos.dist(dropoff) >= vis_radius || world.at(dropoff) != World.Space.UNKNOWN)
+		{
+			// go to the dropoff
+			dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
+		}
 
 		// if we can't get there
 		if (dir == -1)
@@ -543,9 +547,9 @@ public class PacAgent extends Agent
 			});
 
 			// clear goals of all but the one closest agent
-			if (goal.equals(g) && !pos.equals(poss.get(0))) goal = null;
+			if (g.equals(goal) && !pos.equals(poss.get(0))) goal = null;
 			for (PacAgent agent : agents.values())
-				if (agent.goal.equals(g) && !agent.pos.equals(poss.get(0))) agent.goal = null;
+				if (g.equals(agent.goal) && !agent.pos.equals(poss.get(0))) agent.goal = null;
 		}
 	}
 
