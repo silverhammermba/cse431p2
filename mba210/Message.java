@@ -9,6 +9,7 @@ public class Message
 	public Coord goal;
 	public Coord pos;
 	public Coord dropped_package;
+	public Coord pickup_dropped;
 	public int holding;
 	public List<Coord> coords;
 
@@ -43,6 +44,10 @@ public class Message
 					break;
 				case 'D':
 					message.dropped_package = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
+					i = i + 3;
+					break;
+				case 'X':
+					message.pickup_dropped = new Coord(decodeInt(str.charAt(i + 1)), decodeInt(str.charAt(i + 2)));
 					i = i + 3;
 					break;
 				case 'H':
@@ -92,6 +97,10 @@ public class Message
 		if (dropped_package != null)
 		{
 			str += "D" + encodeCoord(dropped_package);
+		}
+		if (pickup_dropped != null)
+		{
+			str += "X" + encodeCoord(pickup_dropped);
 		}
 		if (pos != null)
 		{

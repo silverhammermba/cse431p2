@@ -41,7 +41,7 @@ public class PacAgent extends Agent
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
 	Set<Coord> dropoffs;
-	List<Coord> dropped_packages;
+	Set<Coord> dropped_packages;
 	Coord dropped_package;
 	int possible_package;
 	VisiblePackage held_package;
@@ -64,7 +64,7 @@ public class PacAgent extends Agent
 		possible_package = -1;
 		agents = new HashMap<String, PacAgent>();
 		delivered = false;
-		dropped_packages = new ArrayList<Coord>();
+		dropped_packages = new HashSet<Coord>();
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -129,9 +129,10 @@ public class PacAgent extends Agent
 			}
 
 			if (message.dropped_package != null)
-			{
 				dropped_packages.add(message.dropped_package);
-			}
+
+			if (message.pickup_dropped != null)
+				dropped_packages.remove(message.pickup_dropped);
 		}
 
 		resolveGoalConflicts();
@@ -204,7 +205,7 @@ public class PacAgent extends Agent
 
 			// and also from agents' goals
 			for (PacAgent agent : agents.values())
-				if (c.equals(agent.goal))
+				if (c.equals(agent.goal) && !dropped_packages.contains(c))
 					agent.goal = null;
 		}
 
@@ -241,6 +242,7 @@ public class PacAgent extends Agent
 		if (action != null) return action;
 
 		// shouldn't get here
+		System.out.println("No action returned by any layer");
 		return new Idle();
 	}
 
@@ -260,16 +262,23 @@ public class PacAgent extends Agent
 		// and indicate how we are holding a package
 		if ((goal != null && held_package != null) || delivered)
 		{
+			Message message = new Message();
+
 			if (goal != null)
 			{
 				world.clear(goal.x, goal.y);
-				discoveries.add(goal);
+				if (dropped_packages.contains(goal))
+				{
+					dropped_packages.remove(goal);
+					message.pickup_dropped = goal;
+				}
+				else
+					discoveries.add(goal);
 			}
 
 			goal = null;
 			delivered = false;
 
-			Message message = new Message();
 			message.id = id;
 			if (held_package == null)
 				message.holding = -1;
@@ -416,12 +425,23 @@ public class PacAgent extends Agent
 				Coord c = null;
 				for (Coord d : dropped_packages)
 				{
+					boolean taken = false;
+					for (PacAgent agent : agents.values())
+					{
+						if (d.equals(agent.goal))
+						{
+							taken = true;
+							break;
+						}
+					}
+					if (taken) continue;
 					if (c == null || pos.dist(d) < pos.dist(c))
 						c = d;
 				}
 
 				if (c == null)
 				{
+					System.out.println("No dropped packages or unknown space to get");
 					return new Idle();
 				}
 				else
@@ -440,8 +460,6 @@ public class PacAgent extends Agent
 
 			return new Say(message.toString());
 		}
-
-		System.out.println(id + " pos " + pos + " goal " + goal);
 
 		// get direction to goal
 
@@ -478,6 +496,7 @@ public class PacAgent extends Agent
 		if (dir == -1)
 		{
 			// TODO better way to handle this?
+			System.out.println(id + ": no path to nearest unexplored space");
 			goal = null;
 			return new Idle();
 		}
@@ -516,18 +535,37 @@ public class PacAgent extends Agent
 	 */
 	void resolveGoalConflicts()
 	{
-		// first collect all goals among the agents
+		// first collect all agents and goals
 		Set<Coord> goals = new HashSet<Coord>();
-		if (goal != null) goals.add(goal);
+		List<PacAgent> all_agents = new ArrayList<PacAgent>();
+		if (goal != null)
+		{
+			goals.add(goal);
+			all_agents.add(this);
+		}
 		for (PacAgent agent : agents.values())
-			if (agent.goal != null) goals.add(agent.goal);
+		{
+			if (agent.goal != null && agent.pos != null)
+			{
+				goals.add(agent.goal);
+				all_agents.add(agent);
+			}
+		}
+
+		for (PacAgent agent : all_agents)
+		{
+			if (agent.goal != null && agent.pos == null)
+				System.out.println(agent.id + " has null pos");
+		}
+
+		// no chance of conflict
+		if (goals.size() < 2 || agents.size() < 2) return;
 
 		for (Coord g : goals)
 		{
 			// get the positions of all agents with that goal
 			List<Coord> poss = new ArrayList<Coord>();
-			if (g.equals(goal)) poss.add(pos);
-			for (PacAgent agent : agents.values())
+			for (PacAgent agent : all_agents)
 				if (g.equals(agent.goal)) poss.add(agent.pos);
 
 			// no conflict, nothing to do
@@ -547,9 +585,18 @@ public class PacAgent extends Agent
 			});
 
 			// clear goals of all but the one closest agent
-			if (g.equals(goal) && !pos.equals(poss.get(0))) goal = null;
-			for (PacAgent agent : agents.values())
-				if (g.equals(agent.goal) && !agent.pos.equals(poss.get(0))) agent.goal = null;
+			for (PacAgent agent : all_agents)
+			{
+				if (g.equals(agent.goal))
+				{
+					if (!agent.pos.equals(poss.get(0)))
+						agent.goal = null;
+					else
+					{
+						System.out.println(agent.id + " wins goal" + agent.goal);
+					}
+				}
+			}
 		}
 	}
 

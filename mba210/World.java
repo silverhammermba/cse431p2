@@ -182,6 +182,7 @@ public class World
 			}
 		}
 
+		/*
 		String str = "";
 		for (int j = 0; j < size; ++j)
 		{
@@ -212,6 +213,7 @@ public class World
 			str += "\n";
 		}
 		System.out.println(str);
+		*/
 
 		// TODO it is sometimes posisble that an agent can't find a path when
 		// another agent is *near* its goal
