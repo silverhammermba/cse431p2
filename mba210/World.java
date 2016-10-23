@@ -113,7 +113,6 @@ public class World
 				nodes[i][j] = new Node(i, j);
 
 		// indicate obstacles
-		// TODO can be out of bounds???
 		for (Coord o : obstacles)
 			nodes[o.x][o.y].obstacle = true;
 
@@ -215,8 +214,6 @@ public class World
 		System.out.println(str);
 		*/
 
-		// TODO it is sometimes posisble that an agent can't find a path when
-		// another agent is *near* its goal
 		return -1;
 	}
 

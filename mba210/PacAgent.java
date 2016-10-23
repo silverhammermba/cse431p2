@@ -86,7 +86,13 @@ public class PacAgent extends Agent
 		// initialize the world map once we know the world size
 		if (world == null) world = new World(percept.getWorldSize());
 
-		// TODO does this cause on off-by-one error because the messages are from last step?
+		/* XXX messages are delivered *in order* e.g. the first agent won't see
+		 * any messages on the first turn, the last agent will see all
+		 * messages.
+		 *
+		 * But I think this really only affects the logic of the first turn, in
+		 * the long run it works out.
+		 */
 
 		// copy some parts of the percept for convenience
 		held_package = percept.getHeldPackage();
