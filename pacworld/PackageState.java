@@ -59,6 +59,75 @@ public class PackageState extends State {
       return getInitState(agts, numPackages, numDests, mapSize);
    }
 
+   /** Return a custom initial state for the vacuum world. */
+   public static PackageState getCustomState(List<Agent> agts) {
+      PackageState state;
+      int i, x, y;
+
+	  int numDests = 3;
+	  int numPackages = 9 * numDests;
+	  int mapSize = 50;
+      
+      state = new PackageState();
+      state.origNumPackages = state.numPackages = numPackages;
+      state.numAgents = agts.size();
+      state.agentReps = new HashMap<Agent,PacAgentRep>();
+      state.packages = new ArrayList<Package>();
+
+      state.mapSize = mapSize;
+      state.map = new Object[mapSize][mapSize];
+      for (i = 0; i < mapSize; i++)
+         for (int j = 0; j < mapSize; j++)
+            state.map[i][j] = null;
+
+      state.numDests = numDests;
+      state.destinations = new Location[numDests];
+      // Note: Random.nextFloat() generates numbers s.t. 0.0 <= n < 1.0
+      // Casting a float to an int, truncates the fractional part
+      for (i = 0; i < numDests; i++) {
+         // we don't want to put destinations on the edge of the map
+         x = (int)(rand.nextFloat() * (mapSize - 2)) + 1;
+         y = (int)(rand.nextFloat() * (mapSize - 2)) + 1;
+         state.destinations[i] = new Location(x, y);
+      }
+
+	  int pn = 0;
+	  for (i = 0; i < numDests; ++i) {
+		  for (int j = -1; j <= 1; ++j) {
+			  for (int k = -1; k <= 1; ++k) {
+				  int destId = (i + 1) % numDests;
+				  Package p = new Package(pn++, destId, state.destinations[destId].getX(), state.destinations[destId].getY());
+				  p.setX(state.destinations[i].getX() + j);
+				  p.setY(state.destinations[i].getY() + k);
+				  state.packages.add(p);
+				  state.map[p.getX()][p.getY()] = p;
+			  }
+		  }
+	  }
+
+      for (i = 0; i < state.numAgents; i++) {
+         Agent agt = agts.get(i);
+         PacAgentRep arep = new PacAgentRep(agt);
+         do {
+            x = (int)(rand.nextFloat() * mapSize);
+            y = (int)(rand.nextFloat() * mapSize);
+         } while (state.map[x][y] != null);
+         arep.setX(x);
+         arep.setY(y);
+         state.agentReps.put(agt,arep);
+         state.map[x][y] = agt;
+      }
+
+      /*
+      state.messages = new String[state.numAgents];
+      for (i = 0; i < state.numAgents; i++)
+         state.messages[i] = null;
+       */ 
+      // state.printState();
+
+      return state;
+   }
+
    /** Return a random initial state for the vacuum world. */
    public static PackageState getInitState(List<Agent> agts, int numPackages, 
          int numDests, int mapSize) {

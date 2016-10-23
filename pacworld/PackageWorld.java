@@ -341,8 +341,11 @@ public class PackageWorld extends Environment{
       	System.exit(1);
       }
       if (useSeed == false)
+         initState = PackageState.getCustomState(world.getAgents());
+		  /*
          initState = PackageState.getInitState(world.getAgents(), world.numPackages,
                                              world.numDestinations, world.worldSize);
+											 */
       else
          initState = PackageState.getInitState(seed, world.getAgents(), world.numPackages,
                                              world.numDestinations, world.worldSize);
