@@ -305,6 +305,7 @@ public class PacAgent extends Agent
 		Coord dropoff = new Coord(held_package.getDestX(), held_package.getDestY());
 
 		// drop off package
+		// TODO need to ensure that the delivery space is empty
 		if (pos.dist(dropoff) == 1)
 		{
 			delivered = true;
