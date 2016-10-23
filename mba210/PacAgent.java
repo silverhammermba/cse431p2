@@ -31,8 +31,11 @@ public class PacAgent extends Agent
 	// copied from PacPercept for convenience
 	final int vis_radius;
 
+	// String id
 	Coord pos;
 	Coord goal;
+	int holding;
+
 	World world;
 	Set<Coord> discoveries;
 	Set<Coord> shared_discoveries;
@@ -40,18 +43,27 @@ public class PacAgent extends Agent
 	VisiblePackage held_package;
 	boolean bumped;
 	boolean delivered;
-	Map<String, OtherAgent> agents;
+	Map<String, PacAgent> agents;
 
-	public PacAgent(int id)
+	private PacAgent(String id)
 	{
-		super(id);
+		this.id = id;
+		pos = null;
+		goal = null;
+		holding = -1;
+
 		vis_radius = PacPercept.VIS_RADIUS;
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
 		possible_package = -1;
-		agents = new HashMap<String, OtherAgent>();
+		agents = new HashMap<String, PacAgent>();
 		delivered = false;
 		// XXX other initialization is done after the first percept is received
+	}
+
+	public PacAgent(int id)
+	{
+		this("PacAgent" + id);
 	}
 
 	public void see(Percept p)
@@ -79,7 +91,7 @@ public class PacAgent extends Agent
 		}
 
 		// reset other agent positions, we only care about current positions
-		for (OtherAgent agent : agents.values()) agent.pos = null;
+		for (PacAgent agent : agents.values()) agent.pos = null;
 
 		// update positions of visible agents (including this agent)
 		for (VisibleAgent agent : percept.getVisAgents())
@@ -136,7 +148,7 @@ public class PacAgent extends Agent
 		}
 
 		// but anywhere we see an agent is certainly clear
-		for (OtherAgent agent : agents.values())
+		for (PacAgent agent : agents.values())
 			if (agent.pos != null)
 				known[agent.pos.x][agent.pos.y] = true;
 
@@ -177,13 +189,13 @@ public class PacAgent extends Agent
 			discoveries.remove(c);
 
 			// and also from agents' goals
-			for (OtherAgent agent : agents.values())
+			for (PacAgent agent : agents.values())
 				if (c.equals(agent.goal))
 					agent.goal = null;
 		}
 
 		System.out.println(id + " goal " + goal);
-		for (OtherAgent agent : agents.values())
+		for (PacAgent agent : agents.values())
 		{
 			System.out.println(agent);
 		}
@@ -272,7 +284,7 @@ public class PacAgent extends Agent
 			}
 		}
 		// treat other agents, their packages, and goals as obstacles
-		for (OtherAgent agent : agents.values())
+		for (PacAgent agent : agents.values())
 		{
 			if (agent.pos != null)
 			{
@@ -328,7 +340,7 @@ public class PacAgent extends Agent
 
 			// get other agents' goals so we can avoid them
 			Set<Coord> avoid = new HashSet<Coord>();
-			for (OtherAgent agent : agents.values())
+			for (PacAgent agent : agents.values())
 				if (agent.goal != null)
 					avoid.add(agent.goal);
 
@@ -363,7 +375,7 @@ public class PacAgent extends Agent
 			}
 		}
 		// treat other agents, their packages, and goals as obstacles
-		for (OtherAgent agent : agents.values())
+		for (PacAgent agent : agents.values())
 		{
 			if (agent.pos != null)
 			{
@@ -403,10 +415,10 @@ public class PacAgent extends Agent
 		}
 	}
 
-	// get the OtherAgent for the id, initializing a new empty agent if necessary
-	OtherAgent otherAgent(String id)
+	// get the PacAgent for the id, initializing a new empty agent if necessary
+	PacAgent otherAgent(String id)
 	{
-		if (!agents.containsKey(id)) agents.put(id, new OtherAgent(id));
+		if (!agents.containsKey(id)) agents.put(id, new PacAgent(id));
 		return agents.get(id);
 	}
 
@@ -420,7 +432,7 @@ public class PacAgent extends Agent
 		// first collect all goals among the agents
 		Set<Coord> goals = new HashSet<Coord>();
 		if (goal != null) goals.add(goal);
-		for (OtherAgent agent : agents.values())
+		for (PacAgent agent : agents.values())
 			if (agent.goal != null) goals.add(agent.goal);
 
 		for (Coord g : goals)
@@ -428,7 +440,7 @@ public class PacAgent extends Agent
 			// get the positions of all agents with that goal
 			List<Coord> poss = new ArrayList<Coord>();
 			if (g.equals(goal)) poss.add(pos);
-			for (OtherAgent agent : agents.values())
+			for (PacAgent agent : agents.values())
 				if (g.equals(agent.goal)) poss.add(agent.pos);
 
 			// no conflict, nothing to do
@@ -449,8 +461,30 @@ public class PacAgent extends Agent
 
 			// clear goals of all but the one closest agent
 			if (goal.equals(g) && !pos.equals(poss.get(0))) goal = null;
-			for (OtherAgent agent : agents.values())
+			for (PacAgent agent : agents.values())
 				if (agent.goal.equals(g) && !agent.pos.equals(poss.get(0))) agent.goal = null;
 		}
+	}
+
+	@Override
+	public String toString()
+	{
+		String str = new String(id);
+		str += "\npos: ";
+		if (pos == null)
+			str += "unknown";
+		else
+			str += pos.toString();
+		str += "\ngoal: ";
+		if (goal == null)
+			str += "none";
+		else
+			str += goal.toString();
+		str += "\nholding: ";
+		if (holding == -1)
+			str += "nothing";
+		else
+			str += Direction.toString(holding);
+		return str;
 	}
 }
