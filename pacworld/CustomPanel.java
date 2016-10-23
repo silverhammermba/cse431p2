@@ -31,6 +31,16 @@ public class CustomPanel extends JPanel {
       g.setColor(Color.white);
       g.fillRect(0, 0, 5 * myState.getMapSize(), 5 * myState.getMapSize());
 
+      for (int i = 0; i < myState.getMapSize(); i++) {
+         for (int j = 0; j < myState.getMapSize(); j++) {
+			 if ((i + j) % 2 == 0)
+			 {
+				 g.setColor(Color.lightGray);
+				 g.fillRect(5 * i, 5 * j, 5, 5);
+			 }
+		 }
+	  }
+
       Object[][] myMap = myState.getMap();
       if (myState.getDestinations().length > 8) return;
       for (int i = 0; i < myState.getDestinations().length; i++) {
@@ -50,7 +60,7 @@ public class CustomPanel extends JPanel {
                   Agent a = (Agent)(myMap[i][j]);
                   if (myState.getPackageHeldByAgent(a) == null)
                      g.setColor(Color.black);
-                  else g.setColor(Color.gray);
+                  else g.setColor(Color.darkGray);
                   g.fillRect(5 * i, 5 * j, 5, 5);
                }
             } // myMap[i][j] != null
