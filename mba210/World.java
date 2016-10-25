@@ -102,10 +102,9 @@ public class World
 		}
 	}
 
-	/* get the direction to move in on the shortest path from start to end,
+	/* get the shortest path from start any space end_dist away from end,
 	 * taking into account obstacles and a possibly held object
 	 */
-	// TODO save paths to dropoffs so we don't have to recompute, test with single agent in large env
 	// TODO beat 3.81 think time
 	public List<Integer> shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
 	{
@@ -124,6 +123,9 @@ public class World
 			else
 				System.err.println("Invalid obstacle: " + o);
 		}
+
+		// sometimes agents want to bump things, so never treat the end as an obstacle
+		nodes[end.x][end.y].obstacle = false;
 
 		// get relative position of the held object
 		int dx = 0;

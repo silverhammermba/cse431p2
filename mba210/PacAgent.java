@@ -252,13 +252,16 @@ public class PacAgent extends Agent
 		action = pickup();
 		if (action != null) return action;
 
-		// then explore for new packages
-		action = explore();
+		// possibly update our goal
+		action = setGoal();
 		if (action != null) return action;
 
-		// shouldn't get here
-		System.out.println("No action returned by any layer");
-		return new Idle();
+		// pursue the goal
+		action = moveToGoal();
+		if (action != null) return action;
+
+		// else move randomly (just so we aren't in anyone's way)
+		return new Move(ThreadLocalRandom.current().nextInt(0, 4));
 	}
 
 	Action communicate()
@@ -329,7 +332,7 @@ public class PacAgent extends Agent
 		}
 
 		// treat nearby unknown spaces as obstacles
-		Set<Coord> obstacles = knownObstacles(false);
+		Set<Coord> obstacles = knownObstacles();
 
 		// if we already have a path to the dropoff
 		if (path != null)
@@ -406,7 +409,7 @@ public class PacAgent extends Agent
 		return null;
 	}
 
-	Action explore()
+	Action setGoal()
 	{
 		// if we reached our goal, it was just an empty space
 		if (pos.equals(goal))
@@ -415,65 +418,61 @@ public class PacAgent extends Agent
 			goal = null;
 		}
 
-		// if no goal, set goal
+		// if we already have a goal, nothing to do
+		if (goal != null) return null;
+
+		// get other agents' goals so we can avoid them
+		Set<Coord> avoid = new HashSet<Coord>();
+		for (PacAgent agent : agents.values())
+			if (agent.goal != null)
+				avoid.add(agent.goal);
+
+		goal = world.nearestUnknown(pos, avoid);
+
+		// if there are no unknown spaces, try getting a dropped package
 		if (goal == null)
 		{
-			// TODO it should be possible to steal goals if you are closer than they are
-
-			// get other agents' goals so we can avoid them
-			Set<Coord> avoid = new HashSet<Coord>();
-			for (PacAgent agent : agents.values())
-				if (agent.goal != null)
-					avoid.add(agent.goal);
-
-			goal = world.nearestUnknown(pos, avoid);
-
-			if (goal == null)
+			Coord c = null;
+			// TODO need to be able to steal these goals
+			// find the nearest dropped package that no other agent is pursuing
+			for (Coord d : dropped_packages)
 			{
-				Coord c = null;
-				for (Coord d : dropped_packages)
+				boolean taken = false;
+				for (PacAgent agent : agents.values())
 				{
-					boolean taken = false;
-					for (PacAgent agent : agents.values())
+					if (d.equals(agent.goal))
 					{
-						if (d.equals(agent.goal))
-						{
-							taken = true;
-							break;
-						}
+						taken = true;
+						break;
 					}
-					if (taken) continue;
-					if (c == null || pos.dist(d) < pos.dist(c))
-						c = d;
 				}
-
-				if (c == null)
-				{
-					// TODO when nothing to do, get out of the way of other agents, test in environment with many more agents than destinations
-					System.out.println("No dropped packages or unknown space to get");
-					return new Move(ThreadLocalRandom.current().nextInt(0, 4));
-				}
-				else
-				{
-					goal = c;
-				}
+				if (taken) continue;
+				if (c == null || pos.dist(d) < pos.dist(c))
+					c = d;
 			}
 
-			Message message = new Message();
-			// broadcast our goal and current position
-			message.id = id;
-			message.goal = goal;
-			message.pos = pos;
-			// throw in discoveries because why not?
-			flushDiscoveries(message);
+			if (c == null) return null;
 
-			return new Say(message.toString());
+			goal = c;
 		}
 
-		// get direction to goal
+		Message message = new Message();
+		// broadcast our goal and current position
+		message.id = id;
+		message.goal = goal;
+		message.pos = pos;
+		// throw in discoveries because why not?
+		flushDiscoveries(message);
 
-		// treat nearby unknown spaces as obstacles
-		Set<Coord> obstacles = knownObstacles(true);
+		return new Say(message.toString());
+	}
+
+	Action moveToGoal()
+	{
+		if (goal == null) return null;
+
+		// go to goal
+		Set<Coord> obstacles = knownObstacles();
 
 		if (path != null)
 		{
@@ -623,6 +622,7 @@ public class PacAgent extends Agent
 		return str;
 	}
 
+	// generate a list of coords within perception range (mainly for iterating)
 	private List<Coord> nearbyCoords()
 	{
 		List<Coord> nearby = new ArrayList<Coord>();
@@ -634,27 +634,19 @@ public class PacAgent extends Agent
 		return nearby;
 	}
 
-	private Set<Coord> knownObstacles(boolean unknown_goal)
+	// generate the set of things we should avoid when moving
+	private Set<Coord> knownObstacles()
 	{
 		Set<Coord> obstacles = new HashSet<Coord>();
 
-		// nearby unknown spaces (unless we want to go to an unknown space)
+		// nearby unknown spaces (might be packages)
 		for (Coord c : nearbyCoords())
 			if (world.at(c) == World.Space.UNKNOWN)
 				obstacles.add(c);
 
-		for (Coord c : obstacles)
-			if (!world.inBounds(c))
-				System.out.println("Invalid nearby coord");
-
 		// dropped packages
 		for (Coord c : dropped_packages)
 			obstacles.add(c);
-
-
-		for (Coord c : obstacles)
-			if (!world.inBounds(c))
-				System.out.println("Invalid dropped package");
 
 		// other agents, their packages, and goals
 		for (PacAgent agent : agents.values())
@@ -662,32 +654,17 @@ public class PacAgent extends Agent
 			if (agent.pos != null)
 			{
 				obstacles.add(agent.pos);
-				if (agent.holding != -1)
-				{
-					Coord c = agent.pos.shift(agent.holding);
-					obstacles.add(c);
-				}
+				if (agent.holding != -1) obstacles.add(agent.pos.shift(agent.holding));
 			}
 			if (agent.goal != null) obstacles.add(agent.goal);
 		}
 
-		for (Coord c : obstacles)
-			if (!world.inBounds(c))
-				System.out.println("Invalid agent/goal/package");
-
-		// other package's delivery spots
+		// other packages' dropoffs
 		for (Coord c : dropoffs)
 		{
 			if (held_package == null || !c.equals(new Coord(held_package.getDestX(), held_package.getDestY())))
 				obstacles.add(c);
 		}
-
-		for (Coord c : obstacles)
-			if (!world.inBounds(c))
-				System.out.println("Invalid dropoff");
-
-		// other agents avoid our goal, so we can safely ignore it as an obstacle
-		if (unknown_goal && goal != null) obstacles.remove(goal);
 
 		return obstacles;
 	}
