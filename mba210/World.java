@@ -4,6 +4,7 @@ import pacworld.Direction;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -105,7 +106,8 @@ public class World
 	 * taking into account obstacles and a possibly held object
 	 */
 	// TODO save paths to dropoffs so we don't have to recompute, test with single agent in large env
-	public int shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
+	// TODO beat 3.81 think time
+	public List<Integer> shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
 	{
 		// create grid of Nodes
 		Node nodes[][] = new Node[size][size];
@@ -148,14 +150,22 @@ public class World
 				if (c == null || n.score < c.score)
 					c = n;
 
-			// if we have reached the end, trace backward and find the first move to make
+			// if we have reached the end, trace backward and construct the path
 			if (c.pos.dist(end) == end_dist)
 			{
-				// indicates that we're already in the right position (shouldn't really be used anywhere)
-				if (c.pos.equals(start)) return -2;
+				List<Integer> path = new LinkedList<Integer>();
 
-				while (!start.equals(c.pred)) c = nodes[c.pred.x][c.pred.y];
-				return start.dirTo(c.pos);
+				// indicates that we're already in the right position (shouldn't really be used anywhere)
+				if (c.pos.equals(start)) return path;
+
+				do
+				{
+					path.add(0, c.pred.dirTo(c.pos));
+					c = nodes[c.pred.x][c.pred.y];
+				}
+				while (!start.equals(c.pos));
+
+				return path;
 			}
 
 			frontier.remove(c);
@@ -221,7 +231,7 @@ public class World
 		System.out.println(str);
 		*/
 
-		return -1;
+		return null;
 	}
 
 	@Override

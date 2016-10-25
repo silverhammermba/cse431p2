@@ -28,7 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class PacAgent extends Agent
 {
 	// how many new things we need to know before we send a message
-	final int discovery_share_thresh = 10;
+	// XXX determined by trial and error
+	final int discovery_share_thresh = 30;
 	// copied from PacPercept for convenience
 	final int vis_radius;
 
@@ -48,6 +49,7 @@ public class PacAgent extends Agent
 	boolean bumped;
 	boolean delivered;
 	Map<String, PacAgent> agents;
+	List<Integer> path;
 
 	private PacAgent(String id)
 	{
@@ -56,6 +58,7 @@ public class PacAgent extends Agent
 		goal = null;
 		holding = -1;
 
+		path = null;
 		dropoffs = new HashSet<Coord>();
 		dropped_package = null;
 		vis_radius = PacPercept.VIS_RADIUS;
@@ -96,6 +99,7 @@ public class PacAgent extends Agent
 
 		// copy some parts of the percept for convenience
 		held_package = percept.getHeldPackage();
+
 		bumped = percept.feelBump();
 		List<Message> messages = new ArrayList<Message>();
 		for (String message : percept.getMessages())
@@ -118,6 +122,12 @@ public class PacAgent extends Agent
 				otherAgent(agent.getId()).pos = new Coord(agent.getX(), agent.getY());
 			}
 		}
+
+		// update holding direction
+		if (held_package == null)
+			holding = -1;
+		else
+			holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
 
 		// update goals and positions transmitted by other agents
 		for (Message message : messages)
@@ -294,6 +304,13 @@ public class PacAgent extends Agent
 			return new Say(message.toString());
 		}
 
+		if (discoveries.size() > discovery_share_thresh)
+		{
+			Message message = new Message();
+			flushDiscoveries(message);
+			return new Say(message.toString());
+		}
+
 		return null;
 	}
 
@@ -314,15 +331,30 @@ public class PacAgent extends Agent
 		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = knownObstacles(false);
 
-		int dir = -1;
+		// if we already have a path to the dropoff
+		if (path != null)
+		{
+			// should not be empty!
+			int dir = path.remove(0);
+
+			// clear the path if that was the last step
+			if (path.isEmpty()) path = null;
+
+			// check for new obstacles blocking the path
+			if (obstacles.contains(pos.shift(dir)) || obstacles.contains(pos.shift(holding).shift(dir)))
+				path = null;
+			else // follow the path
+				return new Move(dir);
+		}
+
+		// try to get a path (if it seems possible)
 		if (pos.dist(dropoff) >= vis_radius || world.at(dropoff) != World.Space.UNKNOWN)
 		{
-			// go to the dropoff
-			dir = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
+			path = world.shortestPathDir(pos, dropoff, pos.dirTo(new Coord(held_package.getX(), held_package.getY())), obstacles, 1);
 		}
 
 		// if we can't get there
-		if (dir == -1)
+		if (path == null)
 		{
 			Coord c;
 
@@ -353,6 +385,9 @@ public class PacAgent extends Agent
 			}
 		}
 
+		int dir = path.remove(0);
+		if (path.isEmpty()) path = null;
+
 		return new Move(dir);
 	}
 
@@ -360,9 +395,11 @@ public class PacAgent extends Agent
 	{
 		if (possible_package != -1 && bumped)
 		{
-			// XXX it *must* be a package, since the other agents should avoid our goal
 			int dir = possible_package;
 			possible_package = -1;
+
+			// TODO it is possible that two agents get in a loop where they keep trying to pick up each other
+			// XXX it *must* be a package, since the other agents should avoid our goal
 			return new Pickup(dir);
 		}
 
@@ -412,8 +449,9 @@ public class PacAgent extends Agent
 
 				if (c == null)
 				{
+					// TODO when nothing to do, get out of the way of other agents, test in environment with many more agents than destinations
 					System.out.println("No dropped packages or unknown space to get");
-					return new Idle();
+					return new Move(ThreadLocalRandom.current().nextInt(0, 4));
 				}
 				else
 				{
@@ -437,16 +475,32 @@ public class PacAgent extends Agent
 		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = knownObstacles(true);
 
-		// XXX we should not be holding a package at this point
-		int dir = world.shortestPathDir(pos, goal, -1, obstacles, 0);
+		if (path != null)
+		{
+			// should not be empty!
+			int dir = path.remove(0);
+			if (path.isEmpty()) path = null;
 
-		if (dir == -1)
+			// check for new obstacles blocking the path
+			if (obstacles.contains(pos.shift(dir)))
+				path = null;
+			else // follow the path
+				return new Move(dir);
+		}
+
+		// XXX we should not be holding a package at this point
+		path = world.shortestPathDir(pos, goal, -1, obstacles, 0);
+
+		if (path == null)
 		{
 			// TODO better way to handle this?
 			System.out.println(id + ": no path to nearest unexplored space");
 			goal = null;
 			return new Idle();
 		}
+
+		int dir = path.remove(0);
+		if (path.isEmpty()) path = null;
 
 		Coord next = pos.shift(dir);
 
