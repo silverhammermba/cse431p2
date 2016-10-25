@@ -163,7 +163,7 @@ public class PacAgent extends Agent
 
 			for (int i = -1; i <= 1; ++i)
 				for (int j = -1; j <= 1; ++j)
-					if (world.in_bounds(px + i, py + j))
+					if (world.inBounds(px + i, py + j))
 						known[px + i][py + j] = false;
 		}
 
@@ -312,36 +312,7 @@ public class PacAgent extends Agent
 		}
 
 		// treat nearby unknown spaces as obstacles
-		Set<Coord> obstacles = new HashSet<Coord>();
-		for (Coord c : nearbyCoords())
-			if (world.at(c) == World.Space.UNKNOWN)
-				obstacles.add(c);
-		// navigate around dropped packages
-		for (Coord c : dropped_packages)
-		{
-			obstacles.add(c);
-		}
-		// treat other agents, their packages, and goals as obstacles
-		for (PacAgent agent : agents.values())
-		{
-			if (agent.pos != null)
-			{
-				obstacles.add(agent.pos);
-				if (agent.holding != -1)
-				{
-					Coord c = agent.pos.shift(agent.holding);
-					obstacles.add(c);
-				}
-			}
-			if (agent.goal != null)
-				obstacles.add(agent.goal);
-		}
-		// other package's delivery spots are obstacles
-		for (Coord c : dropoffs)
-		{
-			if (!c.equals(new Coord(held_package.getDestX(), held_package.getDestY())))
-				obstacles.add(c);
-		}
+		Set<Coord> obstacles = knownObstacles(false);
 
 		int dir = -1;
 		if (pos.dist(dropoff) >= vis_radius || world.at(dropoff) != World.Space.UNKNOWN)
@@ -358,13 +329,13 @@ public class PacAgent extends Agent
 			// try to find a clear space to drop the package
 			List<Coord> ds = new ArrayList<Coord>();
 			c = pos.shift(Direction.NORTH);
-			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			if (world.inBounds(c) && !obstacles.contains(c)) ds.add(c);
 			c = pos.shift(Direction.EAST);
-			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			if (world.inBounds(c) && !obstacles.contains(c)) ds.add(c);
 			c = pos.shift(Direction.SOUTH);
-			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			if (world.inBounds(c) && !obstacles.contains(c)) ds.add(c);
 			c = pos.shift(Direction.WEST);
-			if (world.in_bounds(c) && !obstacles.contains(c)) ds.add(c);
+			if (world.inBounds(c) && !obstacles.contains(c)) ds.add(c);
 
 			if (ds.size() == 0)
 			{
@@ -464,25 +435,7 @@ public class PacAgent extends Agent
 		// get direction to goal
 
 		// treat nearby unknown spaces as obstacles
-		Set<Coord> obstacles = new HashSet<Coord>();
-		for (Coord c : nearbyCoords())
-			if (!c.equals(goal) && world.at(c) == World.Space.UNKNOWN)
-				obstacles.add(c);
-		// avoid dropped packages
-		for (Coord c : dropped_packages)
-		{
-			if (!c.equals(goal)) obstacles.add(c);
-		}
-		// treat other agents, their packages, and goals as obstacles
-		for (PacAgent agent : agents.values())
-		{
-			if (agent.pos != null)
-			{
-				obstacles.add(agent.pos);
-				if (agent.holding != -1) obstacles.add(agent.pos.shift(agent.holding));
-			}
-			if (agent.goal != null) obstacles.add(agent.goal);
-		}
+		Set<Coord> obstacles = knownObstacles(true);
 
 		// XXX we should not be holding a package at this point
 		int dir = world.shortestPathDir(pos, goal, -1, obstacles, 0);
@@ -625,5 +578,63 @@ public class PacAgent extends Agent
 				nearby.add(new Coord(i, j));
 
 		return nearby;
+	}
+
+	private Set<Coord> knownObstacles(boolean unknown_goal)
+	{
+		Set<Coord> obstacles = new HashSet<Coord>();
+
+		// nearby unknown spaces (unless we want to go to an unknown space)
+		for (Coord c : nearbyCoords())
+			if (world.at(c) == World.Space.UNKNOWN)
+				obstacles.add(c);
+
+		for (Coord c : obstacles)
+			if (!world.inBounds(c))
+				System.out.println("Invalid nearby coord");
+
+		// dropped packages
+		for (Coord c : dropped_packages)
+			obstacles.add(c);
+
+
+		for (Coord c : obstacles)
+			if (!world.inBounds(c))
+				System.out.println("Invalid dropped package");
+
+		// other agents, their packages, and goals
+		for (PacAgent agent : agents.values())
+		{
+			if (agent.pos != null)
+			{
+				obstacles.add(agent.pos);
+				if (agent.holding != -1)
+				{
+					Coord c = agent.pos.shift(agent.holding);
+					obstacles.add(c);
+				}
+			}
+			if (agent.goal != null) obstacles.add(agent.goal);
+		}
+
+		for (Coord c : obstacles)
+			if (!world.inBounds(c))
+				System.out.println("Invalid agent/goal/package");
+
+		// other package's delivery spots
+		for (Coord c : dropoffs)
+		{
+			if (held_package == null || !c.equals(new Coord(held_package.getDestX(), held_package.getDestY())))
+				obstacles.add(c);
+		}
+
+		for (Coord c : obstacles)
+			if (!world.inBounds(c))
+				System.out.println("Invalid dropoff");
+
+		// other agents avoid our goal, so we can safely ignore it as an obstacle
+		if (unknown_goal && goal != null) obstacles.remove(goal);
+
+		return obstacles;
 	}
 }

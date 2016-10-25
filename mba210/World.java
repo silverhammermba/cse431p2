@@ -45,14 +45,14 @@ public class World
 		grid[i][j] = Space.CLEAR;
 	}
 
-	public boolean in_bounds(int x, int y)
+	public boolean inBounds(int x, int y)
 	{
 		return x >= 0 && y >= 0 && x < size && y < size;
 	}
 
-	public boolean in_bounds(Coord c)
+	public boolean inBounds(Coord c)
 	{
-		return in_bounds(c.x, c.y);
+		return inBounds(c.x, c.y);
 	}
 
 	// find the nearest unknown space to c, excluding any spaces in avoid
@@ -116,7 +116,12 @@ public class World
 		// indicate obstacles
 		// TODO can somehow get out of bounds here???
 		for (Coord o : obstacles)
-			nodes[o.x][o.y].obstacle = true;
+		{
+			if (inBounds(o))
+				nodes[o.x][o.y].obstacle = true;
+			else
+				System.err.println("Invalid obstacle: " + o);
+		}
 
 		// get relative position of the held object
 		int dx = 0;
