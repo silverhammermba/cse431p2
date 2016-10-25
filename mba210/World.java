@@ -104,6 +104,7 @@ public class World
 	/* get the direction to move in on the shortest path from start to end,
 	 * taking into account obstacles and a possibly held object
 	 */
+	// TODO save paths to dropoffs so we don't have to recompute, test with single agent in large env
 	public int shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
 	{
 		// create grid of Nodes
@@ -113,6 +114,7 @@ public class World
 				nodes[i][j] = new Node(i, j);
 
 		// indicate obstacles
+		// TODO can somehow get out of bounds here???
 		for (Coord o : obstacles)
 			nodes[o.x][o.y].obstacle = true;
 

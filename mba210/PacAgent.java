@@ -150,9 +150,8 @@ public class PacAgent extends Agent
 				known[i][j] = false;
 
 		// start by assuming that everything around the agent is known to be clear
-		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
-			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
-				known[i][j] = true;
+		for (Coord c : nearbyCoords())
+			known[c.x][c.y] = true;
 
 		// anywhere we see a package is an area of uncertainty
 		for (VisiblePackage pack : percept.getVisPackages())
@@ -314,15 +313,9 @@ public class PacAgent extends Agent
 
 		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = new HashSet<Coord>();
-		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
-		{
-			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
-			{
-				Coord c = new Coord(i, j);
-				if (world.at(c) == World.Space.UNKNOWN)
-					obstacles.add(c);
-			}
-		}
+		for (Coord c : nearbyCoords())
+			if (world.at(c) == World.Space.UNKNOWN)
+				obstacles.add(c);
 		// navigate around dropped packages
 		for (Coord c : dropped_packages)
 		{
@@ -472,15 +465,9 @@ public class PacAgent extends Agent
 
 		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = new HashSet<Coord>();
-		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
-		{
-			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
-			{
-				Coord c = new Coord(i, j);
-				if (!c.equals(goal) && world.at(c) == World.Space.UNKNOWN)
-					obstacles.add(c);
-			}
-		}
+		for (Coord c : nearbyCoords())
+			if (!c.equals(goal) && world.at(c) == World.Space.UNKNOWN)
+				obstacles.add(c);
 		// avoid dropped packages
 		for (Coord c : dropped_packages)
 		{
@@ -627,5 +614,16 @@ public class PacAgent extends Agent
 		else
 			str += Direction.toString(holding);
 		return str;
+	}
+
+	private List<Coord> nearbyCoords()
+	{
+		List<Coord> nearby = new ArrayList<Coord>();
+
+		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
+			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
+				nearby.add(new Coord(i, j));
+
+		return nearby;
 	}
 }
