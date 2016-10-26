@@ -277,10 +277,9 @@ public class PacAgent extends Agent
 	{
 		if (dropped_package != null)
 		{
-			Message message = new Message();
+			Message message = newMessage();
 			message.id = id;
 			message.dropped_package = dropped_package;
-			flushDiscoveries(message);
 
 			dropped_package = null;
 
@@ -291,7 +290,7 @@ public class PacAgent extends Agent
 		// and indicate how we are holding a package
 		if ((goal != null && held_package != null) || delivered)
 		{
-			Message message = new Message();
+			Message message = newMessage();
 
 			if (goal != null)
 			{
@@ -310,15 +309,13 @@ public class PacAgent extends Agent
 
 			message.id = id;
 			message.holding = holding;
-			flushDiscoveries(message);
 
 			return new Say(message.toString());
 		}
 
 		if (discoveries.size() > discovery_share_thresh)
 		{
-			Message message = new Message();
-			flushDiscoveries(message);
+			Message message = newMessage();
 			return new Say(message.toString());
 		}
 
@@ -465,13 +462,11 @@ public class PacAgent extends Agent
 			goal = c;
 		}
 
-		Message message = new Message();
+		Message message = newMessage();
 		// broadcast our goal and current position
 		message.id = id;
 		message.goal = goal;
 		message.pos = pos;
-		// throw in discoveries because why not?
-		flushDiscoveries(message);
 
 		return new Say(message.toString());
 	}
@@ -518,6 +513,7 @@ public class PacAgent extends Agent
 
 	Action getOutOfTheWay()
 	{
+		// calculate a point that is kinda far from everything
 		Coord far = null;
 		int far_dist = 0;
 
@@ -529,8 +525,10 @@ public class PacAgent extends Agent
 
 				int dist = 0;
 
+				// far from dropoffs
 				for (Coord d : dropoffs)
 					dist += c.dist(d);
+				// and far from known agent positions
 				for (PacAgent a : other_agents.values())
 				{
 					if (a.pos != null)
@@ -548,19 +546,25 @@ public class PacAgent extends Agent
 		// XXX a bit of hack: set the goal without broadcasting because it doesn't matter if many agents go to the same place
 		goal = far;
 
+		// also don't need an action because next turn the moveToGoal will kick in
 		return null;
 	}
 
-	// add all discoveries to the message (and to shared_disc)
-	void flushDiscoveries(Message message)
+	// wrapper for making a new message because we always want to send any discoveries we've made
+	Message newMessage()
 	{
-		if (discoveries.size() == 0) return;
+		Message message = new Message();
+
+		if (discoveries.size() == 0) return message;
+
 		message.coords = new ArrayList<Coord>();
 		for (Coord c : discoveries)
 		{
 			message.coords.add(c);
 			shared_discoveries.add(c);
 		}
+
+		return message;
 	}
 
 	// get the PacAgent for the id, initializing a new empty agent if necessary
