@@ -13,8 +13,8 @@ public class World
 {
 	public enum Space { UNKNOWN, CLEAR };
 
-	int size;
-	Space grid[][];
+	private int size;
+	private Space grid[][];
 
 	public World(int size)
 	{
@@ -86,7 +86,7 @@ public class World
 	}
 
 	// for doing A* path finding
-	class Node
+	private class Node
 	{
 		public Coord pos;
 		public Coord pred;

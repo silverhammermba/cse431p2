@@ -293,7 +293,7 @@ public class PacAgent extends Agent
 		return new Idle();
 	}
 
-	Action communicate()
+	private Action communicate()
 	{
 		// if we just dropped a package, need to let other agents know
 		if (dropped_package != null)
@@ -347,7 +347,7 @@ public class PacAgent extends Agent
 		return null;
 	}
 
-	Action deliver()
+	private Action deliver()
 	{
 		if (held_package == null) return null;
 
@@ -420,7 +420,7 @@ public class PacAgent extends Agent
 		return new Move(dir);
 	}
 
-	Action pickup()
+	private Action pickup()
 	{
 		// if no possible package or no bump, nothing to do
 		if (possible_package == -1 || !bumped) return null;
@@ -432,7 +432,7 @@ public class PacAgent extends Agent
 		return new Pickup(dir);
 	}
 
-	Action setGoal()
+	private Action setGoal()
 	{
 		// if we already have a goal, nothing to do
 		if (goal != null) return null;
@@ -485,7 +485,7 @@ public class PacAgent extends Agent
 		return new Say(message.toString());
 	}
 
-	Action moveToGoal()
+	private Action moveToGoal()
 	{
 		if (goal == null) return null;
 
@@ -521,14 +521,19 @@ public class PacAgent extends Agent
 
 		Coord next = pos.shift(dir);
 
-		// if we're right next to the goal, it could be a package
-		// TODO this part could be skipped for dropped packages...
-		if (goal.equals(next)) possible_package = dir;
+		if (goal.equals(next))
+		{
+			// if it's a dropped package, we can just pick up right away
+			if (dropped_packages.contains(goal))
+				return new Pickup(dir);
+			else // an unknown space must be confirmed next turn
+				possible_package = dir;
+		}
 
 		return new Move(dir);
 	}
 
-	Action getOutOfTheWay()
+	private Action getOutOfTheWay()
 	{
 		// calculate a point that is kinda far from everything
 		Coord far = null;
@@ -564,12 +569,14 @@ public class PacAgent extends Agent
 		evasion = true;
 		goal = far;
 
-		// also don't need an action because next turn the moveToGoal will kick in
+		// also don't need an action because next turn moveToGoal will kick in
 		return null;
 	}
 
+	// UTILITY FUNCTIONS
+
 	// wrapper for making a new message because we always want to send any discoveries we've made
-	Message newMessage()
+	private Message newMessage()
 	{
 		Message message = new Message();
 
@@ -586,7 +593,7 @@ public class PacAgent extends Agent
 	}
 
 	// get the PacAgent for the id, initializing a new empty agent if necessary
-	PacAgent otherAgent(String id)
+	private PacAgent otherAgent(String id)
 	{
 		if (!other_agents.containsKey(id)) other_agents.put(id, new PacAgent(id));
 		return other_agents.get(id);
@@ -597,7 +604,7 @@ public class PacAgent extends Agent
 	 * This resolution is performed independently by each agent so that they
 	 * all get the same result and are aware of each other's goals.
 	 */
-	void resolveGoalConflicts()
+	private void resolveGoalConflicts()
 	{
 		// first collect all agents and goals
 		Set<Coord> goals = new HashSet<Coord>();
@@ -650,28 +657,6 @@ public class PacAgent extends Agent
 		}
 	}
 
-	@Override
-	public String toString()
-	{
-		String str = new String(id);
-		str += "\npos: ";
-		if (pos == null)
-			str += "unknown";
-		else
-			str += pos.toString();
-		str += "\ngoal: ";
-		if (goal == null)
-			str += "none";
-		else
-			str += goal.toString();
-		str += "\nholding: ";
-		if (holding == -1)
-			str += "nothing";
-		else
-			str += Direction.toString(holding);
-		return str;
-	}
-
 	// generate a list of coords within perception range (mainly for iterating)
 	private List<Coord> nearbyCoords()
 	{
@@ -717,5 +702,27 @@ public class PacAgent extends Agent
 		}
 
 		return obstacles;
+	}
+
+	@Override
+	public String toString()
+	{
+		String str = new String(id);
+		str += "\npos: ";
+		if (pos == null)
+			str += "unknown";
+		else
+			str += pos.toString();
+		str += "\ngoal: ";
+		if (goal == null)
+			str += "none";
+		else
+			str += goal.toString();
+		str += "\nholding: ";
+		if (holding == -1)
+			str += "nothing";
+		else
+			str += Direction.toString(holding);
+		return str;
 	}
 }

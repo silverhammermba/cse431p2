@@ -20,7 +20,7 @@ public class Message
 		holding = -2;
 	}
 
-	static Message fromString(String str)
+	public static Message fromString(String str)
 	{
 		Message message = new Message();
 
