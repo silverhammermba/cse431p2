@@ -67,17 +67,17 @@ public class Message
 		return message;
 	}
 
-	String encodeInt(int c)
+	private String encodeInt(int c)
 	{
 		return "" + (char)('!' + c);
 	}
 
-	static int decodeInt(char c)
+	private static int decodeInt(char c)
 	{
 		return c - '!';
 	}
 
-	String encodeCoord(Coord c)
+	private String encodeCoord(Coord c)
 	{
 		return encodeInt(c.x) + encodeInt(c.y);
 	}

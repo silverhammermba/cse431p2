@@ -4,9 +4,9 @@ import pacworld.Direction;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class World
@@ -82,7 +82,8 @@ public class World
 
 		if (nearest.size() == 0) return null;
 
-		return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
+		//return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
+		return nearest.get(0);
 	}
 
 	// for doing A* path finding
@@ -105,8 +106,7 @@ public class World
 	/* get the shortest path from start any space end_dist away from end,
 	 * taking into account obstacles and a possibly held object
 	 */
-	// TODO beat 3.81 think time
-	public List<Integer> shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
+	public Stack<Integer> shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
 	{
 		// create grid of Nodes
 		Node nodes[][] = new Node[size][size];
@@ -155,14 +155,14 @@ public class World
 			// if we have reached the end, trace backward and construct the path
 			if (c.pos.dist(end) == end_dist)
 			{
-				List<Integer> path = new LinkedList<Integer>();
+				Stack<Integer> path = new Stack<Integer>();
 
 				// indicates that we're already in the right position (shouldn't really be used anywhere)
 				if (c.pos.equals(start)) return path;
 
 				do
 				{
-					path.add(0, c.pred.dirTo(c.pos));
+					path.push(c.pred.dirTo(c.pos));
 					c = nodes[c.pred.x][c.pred.y];
 				}
 				while (!start.equals(c.pos));

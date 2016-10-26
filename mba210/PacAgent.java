@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class PacAgent extends Agent
@@ -48,8 +49,8 @@ public class PacAgent extends Agent
 	VisiblePackage held_package;
 	boolean bumped;
 	boolean delivered;
-	Map<String, PacAgent> agents;
-	List<Integer> path;
+	Map<String, PacAgent> other_agents;
+	Stack<Integer> path;
 
 	private PacAgent(String id)
 	{
@@ -65,7 +66,7 @@ public class PacAgent extends Agent
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
 		possible_package = -1;
-		agents = new HashMap<String, PacAgent>();
+		other_agents = new HashMap<String, PacAgent>();
 		delivered = false;
 		dropped_packages = new HashSet<Coord>();
 		// XXX other initialization is done after the first percept is received
@@ -73,9 +74,10 @@ public class PacAgent extends Agent
 
 	public PacAgent(int id)
 	{
-		this("PacAgent" + id);
+		this("" + id);
 	}
 
+	// update internal state from percept
 	public void see(Percept p)
 	{
 		// check/convert type
@@ -89,17 +91,8 @@ public class PacAgent extends Agent
 		// initialize the world map once we know the world size
 		if (world == null) world = new World(percept.getWorldSize());
 
-		/* XXX messages are delivered *in order* e.g. the first agent won't see
-		 * any messages on the first turn, the last agent will see all
-		 * messages.
-		 *
-		 * But I think this really only affects the logic of the first turn, in
-		 * the long run it works out.
-		 */
-
 		// copy some parts of the percept for convenience
 		held_package = percept.getHeldPackage();
-
 		bumped = percept.feelBump();
 		List<Message> messages = new ArrayList<Message>();
 		for (String message : percept.getMessages())
@@ -107,20 +100,25 @@ public class PacAgent extends Agent
 			messages.add(Message.fromString(message));
 		}
 
+		// detect if delivery failed
+		if (delivered && held_package != null) delivered = false;
+
+		// detect if dropping a package failed
+		if (dropped_package != null && held_package != null) dropped_package = null;
+
+		// record a package this agent dropped
+		if (dropped_package != null) dropped_packages.add(dropped_package);
+
 		// reset other agent positions, we only care about current positions
-		for (PacAgent agent : agents.values()) agent.pos = null;
+		for (PacAgent agent : other_agents.values()) agent.pos = null;
 
 		// update positions of visible agents (including this agent)
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
 			if (agent.getId().equals(id))
-			{
 				pos = new Coord(agent.getX(), agent.getY());
-			}
 			else
-			{
 				otherAgent(agent.getId()).pos = new Coord(agent.getX(), agent.getY());
-			}
 		}
 
 		// update holding direction
@@ -153,7 +151,7 @@ public class PacAgent extends Agent
 
 		resolveGoalConflicts();
 
-		// what do we know about the world from this percept?
+		// figure out which spaces definitely do not have packages
 		boolean known[][] = new boolean[world.getSize()][world.getSize()];
 		for (int i = 0; i < world.getSize(); ++i)
 			for (int j = 0; j < world.getSize(); ++j)
@@ -166,10 +164,11 @@ public class PacAgent extends Agent
 		// anywhere we see a package is an area of uncertainty
 		for (VisiblePackage pack : percept.getVisPackages())
 		{
+			// record the package destination for later use
+			dropoffs.add(new Coord(pack.getDestX(), pack.getDestY()));
+
 			int px = pack.getX();
 			int py = pack.getY();
-
-			dropoffs.add(new Coord(pack.getDestX(), pack.getDestY()));
 
 			for (int i = -1; i <= 1; ++i)
 				for (int j = -1; j <= 1; ++j)
@@ -177,10 +176,23 @@ public class PacAgent extends Agent
 						known[px + i][py + j] = false;
 		}
 
-		// but anywhere we see an agent is certainly clear
-		for (PacAgent agent : agents.values())
+		// but anywhere we see an agent (or their held package) is certainly clear
+		for (PacAgent agent : other_agents.values())
+		{
 			if (agent.pos != null)
+			{
 				known[agent.pos.x][agent.pos.y] = true;
+				if (agent.holding != -1)
+				{
+					Coord pack = agent.pos.shift(agent.holding);
+					if (!world.inBounds(pack))
+					{
+						System.out.println(agent + "\nholding out of bounds");
+					}
+					known[pack.x][pack.y] = true;
+				}
+			}
+		}
 
 		// we also know clear spaces that other agents tell us
 		// anything we receive goes in shared_discoveries
@@ -219,18 +231,10 @@ public class PacAgent extends Agent
 			discoveries.remove(c);
 
 			// and also from agents' goals
-			for (PacAgent agent : agents.values())
+			for (PacAgent agent : other_agents.values())
 				if (c.equals(agent.goal) && !dropped_packages.contains(c))
 					agent.goal = null;
 		}
-
-		System.out.println(this);
-		System.out.println("OTHER AGENTS:");
-		for (PacAgent agent : agents.values())
-		{
-			System.out.println(agent);
-		}
-		System.out.print("\n");
 
 		//System.out.println(world);
 	}
@@ -260,8 +264,12 @@ public class PacAgent extends Agent
 		action = moveToGoal();
 		if (action != null) return action;
 
+		action = getOutOfTheWay();
+		if (action != null) return action;
+
 		// else move randomly (just so we aren't in anyone's way)
-		return new Move(ThreadLocalRandom.current().nextInt(0, 4));
+		//return new Move(ThreadLocalRandom.current().nextInt(0, 4));
+		return new Idle();
 	}
 
 	Action communicate()
@@ -269,9 +277,12 @@ public class PacAgent extends Agent
 		if (dropped_package != null)
 		{
 			Message message = new Message();
+			message.id = id;
+			message.holding = holding;
 			message.dropped_package = dropped_package;
-			dropped_package = null;
 			flushDiscoveries(message);
+
+			dropped_package = null;
 
 			return new Say(message.toString());
 		}
@@ -298,10 +309,7 @@ public class PacAgent extends Agent
 			delivered = false;
 
 			message.id = id;
-			if (held_package == null)
-				message.holding = -1;
-			else
-				message.holding = pos.dirTo(new Coord(held_package.getX(), held_package.getY()));
+			message.holding = holding;
 			flushDiscoveries(message);
 
 			return new Say(message.toString());
@@ -328,6 +336,7 @@ public class PacAgent extends Agent
 		if (pos.dist(dropoff) == 1)
 		{
 			delivered = true;
+			held_package = null;
 			return new Dropoff(pos.dirTo(dropoff));
 		}
 
@@ -338,10 +347,10 @@ public class PacAgent extends Agent
 		if (path != null)
 		{
 			// should not be empty!
-			int dir = path.remove(0);
+			int dir = path.pop();
 
 			// clear the path if that was the last step
-			if (path.isEmpty()) path = null;
+			if (path.empty()) path = null;
 
 			// check for new obstacles blocking the path
 			if (obstacles.contains(pos.shift(dir)) || obstacles.contains(pos.shift(holding).shift(dir)))
@@ -381,15 +390,15 @@ public class PacAgent extends Agent
 			else
 			{
 				// TODO it is possible that the agent will trap itself here
-				Coord dp = ds.get(ThreadLocalRandom.current().nextInt(0, ds.size()));
+				//Coord dp = ds.get(ThreadLocalRandom.current().nextInt(0, ds.size()));
+				Coord dp = ds.get(0);
 				dropped_package = dp;
-				dropped_packages.add(dp);
 				return new Dropoff(pos.dirTo(dp));
 			}
 		}
 
-		int dir = path.remove(0);
-		if (path.isEmpty()) path = null;
+		int dir = path.pop();
+		if (path.empty()) path = null;
 
 		return new Move(dir);
 	}
@@ -423,7 +432,7 @@ public class PacAgent extends Agent
 
 		// get other agents' goals so we can avoid them
 		Set<Coord> avoid = new HashSet<Coord>();
-		for (PacAgent agent : agents.values())
+		for (PacAgent agent : other_agents.values())
 			if (agent.goal != null)
 				avoid.add(agent.goal);
 
@@ -438,7 +447,7 @@ public class PacAgent extends Agent
 			for (Coord d : dropped_packages)
 			{
 				boolean taken = false;
-				for (PacAgent agent : agents.values())
+				for (PacAgent agent : other_agents.values())
 				{
 					if (d.equals(agent.goal))
 					{
@@ -477,8 +486,8 @@ public class PacAgent extends Agent
 		if (path != null)
 		{
 			// should not be empty!
-			int dir = path.remove(0);
-			if (path.isEmpty()) path = null;
+			int dir = path.pop();
+			if (path.empty()) path = null;
 
 			// check for new obstacles blocking the path
 			if (obstacles.contains(pos.shift(dir)))
@@ -492,14 +501,12 @@ public class PacAgent extends Agent
 
 		if (path == null)
 		{
-			// TODO better way to handle this?
-			System.out.println(id + ": no path to nearest unexplored space");
 			goal = null;
 			return new Idle();
 		}
 
-		int dir = path.remove(0);
-		if (path.isEmpty()) path = null;
+		int dir = path.pop();
+		if (path.empty()) path = null;
 
 		Coord next = pos.shift(dir);
 
@@ -507,6 +514,41 @@ public class PacAgent extends Agent
 		if (goal.equals(next)) possible_package = dir;
 
 		return new Move(dir);
+	}
+
+	Action getOutOfTheWay()
+	{
+		Coord far = null;
+		int far_dist = 0;
+
+		for (int i = 0; i < world.getSize(); ++i)
+		{
+			for (int j = 0; j < world.getSize(); ++j)
+			{
+				Coord c = new Coord(i, j);
+
+				int dist = 0;
+
+				for (Coord d : dropoffs)
+					dist += c.dist(d);
+				for (PacAgent a : other_agents.values())
+				{
+					if (a.pos != null)
+						dist += c.dist(a.pos);
+				}
+
+				if (far == null || dist > far_dist)
+				{
+					far = c;
+					far_dist = dist;
+				}
+			}
+		}
+
+		// XXX a bit of hack: set the goal without broadcasting because it doesn't matter if many agents go to the same place
+		goal = far;
+
+		return null;
 	}
 
 	// add all discoveries to the message (and to shared_disc)
@@ -524,8 +566,8 @@ public class PacAgent extends Agent
 	// get the PacAgent for the id, initializing a new empty agent if necessary
 	PacAgent otherAgent(String id)
 	{
-		if (!agents.containsKey(id)) agents.put(id, new PacAgent(id));
-		return agents.get(id);
+		if (!other_agents.containsKey(id)) other_agents.put(id, new PacAgent(id));
+		return other_agents.get(id);
 	}
 
 	/* After agents have broadcasted their goals, there is a deterministic way
@@ -543,7 +585,7 @@ public class PacAgent extends Agent
 			goals.add(goal);
 			all_agents.add(this);
 		}
-		for (PacAgent agent : agents.values())
+		for (PacAgent agent : other_agents.values())
 		{
 			if (agent.goal != null && agent.pos != null)
 			{
@@ -552,14 +594,8 @@ public class PacAgent extends Agent
 			}
 		}
 
-		for (PacAgent agent : all_agents)
-		{
-			if (agent.goal != null && agent.pos == null)
-				System.out.println(agent.id + " has null pos");
-		}
-
 		// no chance of conflict
-		if (goals.size() < 2 || agents.size() < 2) return;
+		if (goals.size() < 2 || all_agents.size() < 2) return;
 
 		for (Coord g : goals)
 		{
@@ -570,7 +606,6 @@ public class PacAgent extends Agent
 
 			// no conflict, nothing to do
 			if (poss.size() == 1) continue;
-			System.out.println(id + " resolving conflict for goal " + g);
 
 			// sort positions by distance to the goal (breaking ties in an arbitrary but deterministic way)
 			poss.sort((c1, c2) -> {
@@ -587,15 +622,8 @@ public class PacAgent extends Agent
 			// clear goals of all but the one closest agent
 			for (PacAgent agent : all_agents)
 			{
-				if (g.equals(agent.goal))
-				{
-					if (!agent.pos.equals(poss.get(0)))
-						agent.goal = null;
-					else
-					{
-						System.out.println(agent.id + " wins goal" + agent.goal);
-					}
-				}
+				if (g.equals(agent.goal) && !agent.pos.equals(poss.get(0)))
+					agent.goal = null;
 			}
 		}
 	}
@@ -649,7 +677,7 @@ public class PacAgent extends Agent
 			obstacles.add(c);
 
 		// other agents, their packages, and goals
-		for (PacAgent agent : agents.values())
+		for (PacAgent agent : other_agents.values())
 		{
 			if (agent.pos != null)
 			{
