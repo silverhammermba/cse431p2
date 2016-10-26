@@ -67,6 +67,7 @@ public class Message
 		return message;
 	}
 
+	// encode integers as (printable) unicode characters. this works up to about 6000-ish
 	private String encodeInt(int c)
 	{
 		return "" + (char)('!' + c);

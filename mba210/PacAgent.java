@@ -143,7 +143,10 @@ public class PacAgent extends Agent
 			}
 
 			if (message.dropped_package != null)
+			{
+				otherAgent(message.id).holding = -1;
 				dropped_packages.add(message.dropped_package);
+			}
 
 			if (message.pickup_dropped != null)
 				dropped_packages.remove(message.pickup_dropped);
@@ -267,8 +270,6 @@ public class PacAgent extends Agent
 		action = getOutOfTheWay();
 		if (action != null) return action;
 
-		// else move randomly (just so we aren't in anyone's way)
-		//return new Move(ThreadLocalRandom.current().nextInt(0, 4));
 		return new Idle();
 	}
 
@@ -278,7 +279,6 @@ public class PacAgent extends Agent
 		{
 			Message message = new Message();
 			message.id = id;
-			message.holding = holding;
 			message.dropped_package = dropped_package;
 			flushDiscoveries(message);
 
