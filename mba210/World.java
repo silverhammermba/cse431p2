@@ -82,8 +82,7 @@ public class World
 
 		if (nearest.size() == 0) return null;
 
-		//return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
-		return nearest.get(0);
+		return nearest.get(ThreadLocalRandom.current().nextInt(0, nearest.size()));
 	}
 
 	// for doing A* path finding
@@ -103,7 +102,7 @@ public class World
 		}
 	}
 
-	/* get the shortest path from start any space end_dist away from end,
+	/* get the shortest path from start to any space end_dist away from end,
 	 * taking into account obstacles and a possibly held object
 	 */
 	public Stack<Integer> shortestPathDir(Coord start, Coord end, int hold, Set<Coord> obstacles, int end_dist)
@@ -115,14 +114,8 @@ public class World
 				nodes[i][j] = new Node(i, j);
 
 		// indicate obstacles
-		// TODO can somehow get out of bounds here???
 		for (Coord o : obstacles)
-		{
-			if (inBounds(o))
-				nodes[o.x][o.y].obstacle = true;
-			else
-				System.err.println("Invalid obstacle: " + o);
-		}
+			nodes[o.x][o.y].obstacle = true;
 
 		// sometimes agents want to bump things, so never treat the end as an obstacle
 		nodes[end.x][end.y].obstacle = false;

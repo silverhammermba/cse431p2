@@ -31,27 +31,33 @@ public class PacAgent extends Agent
 	// how many new things we need to know before we send a message
 	// XXX determined by trial and error
 	final int discovery_share_thresh = 30;
-	// copied from PacPercept for convenience
-	final int vis_radius;
+	// copied for convenience
+	final int vis_radius = PacPercept.VIS_RADIUS;
 
-	// String id
-	Coord pos;
-	Coord goal;
-	int holding;
+	// general internal state vars, also used in other_agents map
+	//String id
+	Coord pos; // position
+	Coord goal; // goal (if not just delivering a held package)
+	int holding; // direction that a package is being held
 
-	World world;
-	Set<Coord> discoveries;
-	Set<Coord> shared_discoveries;
-	Set<Coord> dropoffs;
-	Set<Coord> dropped_packages;
-	Coord dropped_package;
-	int possible_package;
-	VisiblePackage held_package;
+	World world; // the map
+	Stack<Integer> path; // the shortest path to the current goal
+
+	/* state vars representing the agent's knowledge of the world as perceived
+	 * directly or through messages from other agents */
 	boolean bumped;
-	boolean delivered;
-	boolean evasion;
-	Map<String, PacAgent> other_agents;
-	Stack<Integer> path;
+	VisiblePackage held_package;
+	Set<Coord> discoveries; // clear spaces we have found
+	Set<Coord> shared_discoveries; // clear spaces known by other agents
+	Set<Coord> dropoffs; // possible package dropoff points
+	Set<Coord> dropped_packages; // undeliverable package locations
+	Map<String, PacAgent> other_agents; // known state of other agents
+
+	// vars for inter-layer communication between turns
+	boolean delivered; // did we just try to deliver a package?
+	boolean evasion; // is our goal just to get out of the way?
+	int possible_package; // direction where we suspect there may be a package
+	Coord dropped_package; // where we just tried to drop a package (not delivery)
 
 	private PacAgent(String id)
 	{
@@ -61,16 +67,18 @@ public class PacAgent extends Agent
 		holding = -1;
 
 		path = null;
-		dropoffs = new HashSet<Coord>();
-		dropped_package = null;
-		vis_radius = PacPercept.VIS_RADIUS;
+
 		discoveries = new HashSet<Coord>();
 		shared_discoveries = new HashSet<Coord>();
-		possible_package = -1;
+		dropoffs = new HashSet<Coord>();
+		dropped_packages = new HashSet<Coord>();
 		other_agents = new HashMap<String, PacAgent>();
+
 		delivered = false;
 		evasion = false;
-		dropped_packages = new HashSet<Coord>();
+		possible_package = -1;
+		dropped_package = null;
+
 		// XXX other initialization is done after the first percept is received
 	}
 
@@ -94,9 +102,10 @@ public class PacAgent extends Agent
 		if (world == null) world = new World(percept.getWorldSize());
 
 		// copy some parts of the percept for convenience
-		held_package = percept.getHeldPackage();
 		bumped = percept.feelBump();
+		held_package = percept.getHeldPackage();
 		List<Message> messages = new ArrayList<Message>();
+		// parse all messages now
 		for (String message : percept.getMessages())
 		{
 			messages.add(Message.fromString(message));
@@ -114,7 +123,7 @@ public class PacAgent extends Agent
 		// reset other agent positions, we only care about current positions
 		for (PacAgent agent : other_agents.values()) agent.pos = null;
 
-		// update positions of visible agents (including this agent)
+		// update positions of visible agents (including this one)
 		for (VisibleAgent agent : percept.getVisAgents())
 		{
 			if (agent.getId().equals(id))
@@ -124,6 +133,7 @@ public class PacAgent extends Agent
 		}
 
 		// update holding direction
+		// XXX HAS TO BE AFTER POSITION UPDATE
 		if (held_package == null)
 			holding = -1;
 		else
@@ -141,7 +151,6 @@ public class PacAgent extends Agent
 			if (message.holding != -2 && !id.equals(message.id))
 			{
 				otherAgent(message.id).holding = message.holding;
-				// other agent's goal should be null, this will be updated via shared_discoveries
 			}
 
 			if (message.dropped_package != null)
@@ -190,10 +199,6 @@ public class PacAgent extends Agent
 				if (agent.holding != -1)
 				{
 					Coord pack = agent.pos.shift(agent.holding);
-					if (!world.inBounds(pack))
-					{
-						System.out.println(agent + "\nholding out of bounds");
-					}
 					known[pack.x][pack.y] = true;
 				}
 			}
@@ -244,16 +249,18 @@ public class PacAgent extends Agent
 
 			// and also from agents' goals
 			if (!evasion && c.equals(goal) && !dropped_packages.contains(c))
+			{
 				goal = null;
+				path = null;
+			}
+
 			for (PacAgent agent : other_agents.values())
 				if (c.equals(agent.goal) && !dropped_packages.contains(c))
 					agent.goal = null;
 		}
-
-		//System.out.println(world);
 	}
 
-	// simple subsumption architecture
+	// this part is a simple subsumption architecture
 	public Action selectAction()
 	{
 		Action action = null;
@@ -278,9 +285,11 @@ public class PacAgent extends Agent
 		action = moveToGoal();
 		if (action != null) return action;
 
+		// try not to be in the way
 		action = getOutOfTheWay();
 		if (action != null) return action;
 
+		// else do nothing
 		return new Idle();
 	}
 
@@ -431,6 +440,7 @@ public class PacAgent extends Agent
 		// if we already have a goal, nothing to do
 		if (goal != null) return null;
 
+		// maybe we will stop running away...
 		evasion = false;
 
 		// get other agents' goals so we can avoid them
@@ -439,13 +449,13 @@ public class PacAgent extends Agent
 			if (agent.goal != null)
 				avoid.add(agent.goal);
 
+		// first try to explore the unknown
 		goal = world.nearestUnknown(pos, avoid);
 
 		// if there are no unknown spaces, try getting a dropped package
 		if (goal == null)
 		{
 			Coord c = null;
-			// TODO need to be able to steal these goals
 			// find the nearest dropped package that no other agent is pursuing
 			for (Coord d : dropped_packages)
 			{
@@ -463,6 +473,7 @@ public class PacAgent extends Agent
 					c = d;
 			}
 
+			// if we can't find a dropped package, there is no goal to set
 			if (c == null) return null;
 
 			goal = c;
