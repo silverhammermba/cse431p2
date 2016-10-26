@@ -82,11 +82,13 @@ public class PacPercept extends Percept{
             		   int dx = PackageState.rand.nextInt(3) - 1;
             		   int dy = PackageState.rand.nextInt(3) - 1;
             		   vpack = new VisiblePackage(pack, tx+dx, ty+dy);       // JDH 10/11/16: getDestX/Y -> tx/ty
+					   /*
             		   System.out.println("*** LOCATION NOISE ****");
             		   System.out.println("Agent " + agent.getId() + ": Package(" + tx + "," + ty + ") " +
             				   "Real Loc: (" + pack.getX() + "," + pack.getY() + ") " +
             				   "Noise Loc: (" + vpack.getX() + "," + vpack.getY() + ")");
             		   System.out.println("**************");
+					   */
             	   }
             	   else if (roll < DESTINATION_NOISE + LOCATION_NOISE &&
             			   state.getNumDestinations() > 1) {       // if no location noise, there's an additional chance of destination noise
@@ -95,11 +97,13 @@ public class PacPercept extends Percept{
             		   int noiseDest = (pack.getDestId() + destOffset + 1) % state.getNumDestinations();
             		   Location fakeDestination = state.getDestinations()[noiseDest];
             		   vpack = new VisiblePackage(pack, fakeDestination);
+					   /*
             		   System.out.println("*** DESTINATION NOISE ****");
             		   System.out.println("Agent " + agent.getId() + ": Package(" + tx + "," + ty + ") " +
             				   "Real Dest: (" + pack.getDestX() + "," + pack.getDestY() + ") " +
             				   "Noise Dest: (" + vpack.getDestX() + "," + vpack.getDestY() + ")");
             		   System.out.println("**************");
+					   */
             	   }
             	   else
             		   vpack = new VisiblePackage(pack);
@@ -119,10 +123,12 @@ public class PacPercept extends Percept{
 		  Location fakeDestination = state.getDestinations()[destId];
 		  VisiblePackage vpack = new VisiblePackage(fakeId, px, py, fakeDestination.getX(), fakeDestination.getY());
 		  visPackages.add(vpack);         // JDH: added 10/11/16 - bug fix 
+		  /*
 		  System.out.println("*** PHANTOM PACKAGE NOISE ****");
 		  System.out.println("Agent " + agent.getId() + ": Illusory Package(" + px + "," + py + ") " +
 				   "Illuosry Dest: (" + vpack.getDestX() + "," + vpack.getDestY() + ") ");
 		  System.out.println("**************");
+		  */
 	  }
 	// shuffle the visible packages, otherwise we know that the first n-1 are true packages
       Collections.shuffle(visPackages, PackageState.rand);   
