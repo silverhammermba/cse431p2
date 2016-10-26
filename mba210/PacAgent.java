@@ -295,6 +295,7 @@ public class PacAgent extends Agent
 
 	Action communicate()
 	{
+		// if we just dropped a package, need to let other agents know
 		if (dropped_package != null)
 		{
 			Message message = newMessage();
@@ -306,22 +307,25 @@ public class PacAgent extends Agent
 			return new Say(message.toString());
 		}
 
-		// if we've picked up or dropped off a package, broadcast discoveries
-		// and indicate how we are holding a package
+		// if we picked up or dropped off, need to indicate how we are holding
 		if ((goal != null && held_package != null) || delivered)
 		{
 			Message message = newMessage();
 
+			// if we picked up
 			if (goal != null)
 			{
-				world.clear(goal.x, goal.y);
+				// update package list or update world
 				if (dropped_packages.contains(goal))
 				{
 					dropped_packages.remove(goal);
 					message.pickup_dropped = goal;
 				}
 				else
+				{
+					world.clear(goal.x, goal.y);
 					discoveries.add(goal);
+				}
 			}
 
 			goal = null;
@@ -333,6 +337,7 @@ public class PacAgent extends Agent
 			return new Say(message.toString());
 		}
 
+		// or if we just have found out a lot, should share that
 		if (discoveries.size() > discovery_share_thresh)
 		{
 			Message message = newMessage();
@@ -349,15 +354,12 @@ public class PacAgent extends Agent
 		Coord dropoff = new Coord(held_package.getDestX(), held_package.getDestY());
 
 		// drop off package
-		// TODO need to ensure that the delivery space is empty
 		if (pos.dist(dropoff) == 1)
 		{
 			delivered = true;
-			held_package = null;
 			return new Dropoff(pos.dirTo(dropoff));
 		}
 
-		// treat nearby unknown spaces as obstacles
 		Set<Coord> obstacles = knownObstacles();
 
 		// if we already have a path to the dropoff
@@ -400,20 +402,18 @@ public class PacAgent extends Agent
 
 			if (ds.size() == 0)
 			{
-				// TODO try to get to a clear space?
-				System.err.println(id + ": no path from " + pos + " to dropoff " + dropoff);
+				System.err.println(id + " trapped");
 				return new Idle();
 			}
 			else
 			{
-				// TODO it is possible that the agent will trap itself here
-				//Coord dp = ds.get(ThreadLocalRandom.current().nextInt(0, ds.size()));
-				Coord dp = ds.get(0);
-				dropped_package = dp;
-				return new Dropoff(pos.dirTo(dp));
+				// XXX could trap ourselves here, but very rarely and we should be able to recover later
+				dropped_package = ds.get(0);
+				return new Dropoff(pos.dirTo(dropped_package));
 			}
 		}
 
+		// definitely have a valid path by now
 		int dir = path.pop();
 		if (path.empty()) path = null;
 
@@ -422,17 +422,14 @@ public class PacAgent extends Agent
 
 	Action pickup()
 	{
-		if (possible_package != -1 && bumped)
-		{
-			int dir = possible_package;
-			possible_package = -1;
+		// if no possible package or no bump, nothing to do
+		if (possible_package == -1 || !bumped) return null;
 
-			// TODO it is possible that two agents get in a loop where they keep trying to pick up each other
-			// XXX it *must* be a package, since the other agents should avoid our goal
-			return new Pickup(dir);
-		}
+		int dir = possible_package;
+		possible_package = -1;
 
-		return null;
+		// XXX it *should* be a package, since the other agents avoid our goal
+		return new Pickup(dir);
 	}
 
 	Action setGoal()
@@ -492,9 +489,9 @@ public class PacAgent extends Agent
 	{
 		if (goal == null) return null;
 
-		// go to goal
 		Set<Coord> obstacles = knownObstacles();
 
+		// try to follow computed path
 		if (path != null)
 		{
 			// should not be empty!
@@ -511,18 +508,21 @@ public class PacAgent extends Agent
 		// XXX we should not be holding a package at this point
 		path = world.shortestPathDir(pos, goal, -1, obstacles, 0);
 
+		// no path to goal, skip this turn
 		if (path == null)
 		{
 			goal = null;
 			return new Idle();
 		}
 
+		// definitely have a good path now
 		int dir = path.pop();
 		if (path.empty()) path = null;
 
 		Coord next = pos.shift(dir);
 
-		// if we're right next to the unknown space, it could be a package
+		// if we're right next to the goal, it could be a package
+		// TODO this part could be skipped for dropped packages...
 		if (goal.equals(next)) possible_package = dir;
 
 		return new Move(dir);
