@@ -49,6 +49,7 @@ public class PacAgent extends Agent
 	VisiblePackage held_package;
 	boolean bumped;
 	boolean delivered;
+	boolean evasion;
 	Map<String, PacAgent> other_agents;
 	Stack<Integer> path;
 
@@ -68,6 +69,7 @@ public class PacAgent extends Agent
 		possible_package = -1;
 		other_agents = new HashMap<String, PacAgent>();
 		delivered = false;
+		evasion = false;
 		dropped_packages = new HashSet<Coord>();
 		// XXX other initialization is done after the first percept is received
 	}
@@ -228,12 +230,21 @@ public class PacAgent extends Agent
 			}
 		}
 
+		// if we reached our goal, it was just an empty space
+		if (pos.equals(goal))
+		{
+			discoveries.add(goal);
+			goal = null;
+		}
+
 		for (Coord c : shared_discoveries)
 		{
 			// remove public knowledge from our list of discoveries
 			discoveries.remove(c);
 
 			// and also from agents' goals
+			if (!evasion && c.equals(goal) && !dropped_packages.contains(c))
+				goal = null;
 			for (PacAgent agent : other_agents.values())
 				if (c.equals(agent.goal) && !dropped_packages.contains(c))
 					agent.goal = null;
@@ -417,15 +428,10 @@ public class PacAgent extends Agent
 
 	Action setGoal()
 	{
-		// if we reached our goal, it was just an empty space
-		if (pos.equals(goal))
-		{
-			discoveries.add(goal);
-			goal = null;
-		}
-
 		// if we already have a goal, nothing to do
 		if (goal != null) return null;
+
+		evasion = false;
 
 		// get other agents' goals so we can avoid them
 		Set<Coord> avoid = new HashSet<Coord>();
@@ -544,6 +550,7 @@ public class PacAgent extends Agent
 		}
 
 		// XXX a bit of hack: set the goal without broadcasting because it doesn't matter if many agents go to the same place
+		evasion = true;
 		goal = far;
 
 		// also don't need an action because next turn the moveToGoal will kick in
