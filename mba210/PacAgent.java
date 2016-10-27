@@ -36,28 +36,28 @@ public class PacAgent extends Agent
 
 	// general internal state vars, also used in other_agents map
 	//String id
-	Coord pos; // position
-	Coord goal; // goal (if not just delivering a held package)
-	int holding; // direction that a package is being held
+	private Coord pos; // position
+	private Coord goal; // goal (if not just delivering a held package)
+	private int holding; // direction that a package is being held
 
-	World world; // the map
-	Stack<Integer> path; // the shortest path to the current goal
+	private World world; // the map
+	private Stack<Integer> path; // the shortest path to the current goal
 
 	/* state vars representing the agent's knowledge of the world as perceived
 	 * directly or through messages from other agents */
-	boolean bumped;
-	VisiblePackage held_package;
-	Set<Coord> discoveries; // clear spaces we have found
-	Set<Coord> shared_discoveries; // clear spaces known by other agents
-	Set<Coord> dropoffs; // possible package dropoff points
-	Set<Coord> dropped_packages; // undeliverable package locations
-	Map<String, PacAgent> other_agents; // known state of other agents
+	private boolean bumped;
+	private VisiblePackage held_package;
+	private Set<Coord> discoveries; // clear spaces we have found
+	private Set<Coord> shared_discoveries; // clear spaces known by other agents
+	private Set<Coord> dropoffs; // possible package dropoff points
+	private Set<Coord> dropped_packages; // undeliverable package locations
+	private Map<String, PacAgent> other_agents; // known state of other agents
 
 	// vars for inter-layer communication between turns
-	boolean delivered; // did we just try to deliver a package?
-	boolean evasion; // is our goal just to get out of the way?
-	int possible_package; // direction where we suspect there may be a package
-	Coord dropped_package; // where we just tried to drop a package (not delivery)
+	private boolean delivered; // did we just try to deliver a package?
+	private boolean evasion; // is our goal just to get out of the way?
+	private int possible_package; // direction where we suspect there may be a package
+	private Coord dropped_package; // where we just tried to drop a package (not delivery)
 
 	private PacAgent(String id)
 	{
