@@ -23,9 +23,29 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+/* This is a greedy agent that tries to deliver the nearest package. No
+ * high-level planning occurs between agents, however agents do communicate to
+ * avoid competing over the same package, getting in each other's way, and
+ * exploring redundantly.
+ *
+ * The goal is generally accomplished in three phases:
+ * 1. Agents explore unknown spaces, delivering packages as soon as they bump
+ *    into them. If delivery appears to be impossible, the agent simply drops the
+ *    package and broadcasts the dropped package location.
+ * 2. Once an agent cannot find any new exploration to do, it starts delivering
+ *    the previously dropped packages. This phase is separated since delivery
+ *    may have failed due to packages blocking dropoff points. It is likely
+ *    that by now fewer packages remain blocking the dropoffs.
+ * 3. If there is no exploration to do and no dropped packages to deliver, the
+ *    agent tries to avoid other agents and dropoff points to prevent any
+ *    delays in the remaining deliveries.
+ *
+ * These phases are implemented via a nested subsumption architecture, where
+ * each layer can itself contain other layers that have their own precedence/suppression.
+ */
 public class PacAgent extends Agent
 {
-	// how many new things we need to know before we send a message
+	// how many new things we need to know before we force a broadcast
 	// XXX determined by trial and error
 	private final int discovery_share_thresh = 30;
 	// copied for convenience
@@ -241,16 +261,17 @@ public class PacAgent extends Agent
 
 		for (Coord c : shared_discoveries)
 		{
-			// remove public knowledge from our list of discoveries
+			// remove public knowledge from our list of discoveries,
 			discoveries.remove(c);
 
-			// and also from agents' goals
+			// from our goal (unless we're just evading)
 			if (!evasion && c.equals(goal) && !dropped_packages.contains(c))
 			{
 				goal = null;
 				path = null;
 			}
 
+			// and from other agents' goals
 			for (PacAgent agent : other_agents.values())
 				if (c.equals(agent.goal) && !dropped_packages.contains(c))
 					agent.goal = null;
@@ -346,6 +367,7 @@ public class PacAgent extends Agent
 
 	private Action deliver()
 	{
+		// nothing to do if we don't have a package
 		if (held_package == null) return null;
 
 		Coord dropoff = new Coord(held_package.getDestX(), held_package.getDestY());
@@ -701,6 +723,7 @@ public class PacAgent extends Agent
 		return obstacles;
 	}
 
+	// show stuff common to all agents (this one or others so we can use it for other_agents)
 	@Override
 	public String toString()
 	{

@@ -1,4 +1,5 @@
 package mba210;
+// CSE 431 P2 Maxwell Anselm
 
 import pacworld.Direction;
 
@@ -9,6 +10,12 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ThreadLocalRandom;
 
+/* Represents a map of the world and which spaces certainly do not have
+ * packages (doesn't take into account packages which are later dropped into
+ * explored spaces, but it doesn't need to).
+ *
+ * Also does path finding.
+ */
 public class World
 {
 	public enum Space { UNKNOWN, CLEAR };
@@ -26,6 +33,7 @@ public class World
 				grid[i][j] = Space.UNKNOWN;
 	}
 
+	// access grid
 	public Space at(int x, int y)
 	{
 		return grid[x][y];
@@ -36,11 +44,13 @@ public class World
 		return at(c.x, c.y);
 	}
 
+	// clear a space
 	public void clear(int i, int j)
 	{
 		grid[i][j] = Space.CLEAR;
 	}
 
+	// check coordinate
 	public boolean inBounds(int x, int y)
 	{
 		return x >= 0 && y >= 0 && x < size && y < size;
@@ -170,7 +180,7 @@ public class World
 
 			for (Node n : neighbors)
 			{
-				// if the neighbor was visited, or contains an obstacle (or the space for the held object is an obstacle
+				// if the neighbor was visited, or contains an obstacle (or the space for the held object is an obstacle)
 				if (visited.contains(n) || n.obstacle || nodes[n.pos.x + dx][n.pos.y + dy].obstacle) continue;
 
 				int new_dist = c.dist + 1;
@@ -188,9 +198,11 @@ public class World
 			}
 		}
 
+		// no path
 		return null;
 	}
 
+	// show clear/unknown spaces
 	@Override
 	public String toString()
 	{
