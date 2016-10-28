@@ -30,9 +30,9 @@ public class PacAgent extends Agent
 {
 	// how many new things we need to know before we send a message
 	// XXX determined by trial and error
-	final int discovery_share_thresh = 30;
+	private final int discovery_share_thresh = 30;
 	// copied for convenience
-	final int vis_radius = PacPercept.VIS_RADIUS;
+	private final int vis_radius = PacPercept.VIS_RADIUS;
 
 	// general internal state vars, also used in other_agents map
 	//String id

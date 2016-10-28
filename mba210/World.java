@@ -193,39 +193,6 @@ public class World
 			}
 		}
 
-		/*
-		String str = "";
-		for (int j = 0; j < size; ++j)
-		{
-			for (int i = 0; i < size; ++i)
-			{
-				if (nodes[i][j].pos.equals(end))
-					str += "G";
-				else if (nodes[i][j].pos.equals(start))
-					str += "S";
-				else if (nodes[i][j].pred == null)
-					str += ".";
-				else switch (nodes[i][j].pos.dirTo(nodes[i][j].pred))
-				{
-					case Direction.NORTH:
-						str += "^";
-						break;
-					case Direction.SOUTH:
-						str += "v";
-						break;
-					case Direction.EAST:
-						str += ">";
-						break;
-					case Direction.WEST:
-						str += "<";
-						break;
-				}
-			}
-			str += "\n";
-		}
-		System.out.println(str);
-		*/
-
 		return null;
 	}
 
