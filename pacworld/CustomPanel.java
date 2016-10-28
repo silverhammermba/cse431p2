@@ -31,6 +31,8 @@ public class CustomPanel extends JPanel {
       g.setColor(Color.white);
       g.fillRect(0, 0, 5 * myState.getMapSize(), 5 * myState.getMapSize());
 
+	  /*
+      // checkerboard pattern
       for (int i = 0; i < myState.getMapSize(); i++) {
          for (int j = 0; j < myState.getMapSize(); j++) {
 			 if ((i + j) % 2 == 0)
@@ -40,6 +42,7 @@ public class CustomPanel extends JPanel {
 			 }
 		 }
 	  }
+	  */
 
       Object[][] myMap = myState.getMap();
       if (myState.getDestinations().length > 8) return;
