@@ -145,7 +145,7 @@ public class PacAgent extends Agent
 				otherAgent(message.id).pos = message.pos;
 			}
 
-			if (message.holding != -2 && !id.equals(message.id))
+			if (message.holding != null && !id.equals(message.id))
 			{
 				otherAgent(message.id).holding = message.holding;
 			}

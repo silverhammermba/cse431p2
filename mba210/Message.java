@@ -3,22 +3,19 @@ package mba210;
 import java.util.ArrayList;
 import java.util.List;
 
+// Represents messages that PacAgents send to each other
 public class Message
 {
+	/* Public fields because agents constructing messages can set any
+	 * combination of fields to whatever they like.
+	 */
 	public String id;
 	public Coord goal;
 	public Coord pos;
 	public Coord dropped_package;
 	public Coord pickup_dropped;
-	public int holding;
+	public Integer holding;
 	public List<Coord> coords;
-
-	public Message()
-	{
-		// not nullable, needs a default value
-		// -1 means "not holding anything", so use -2
-		holding = -2;
-	}
 
 	// deserialize a Message object
 	public static Message fromString(String str)
@@ -112,7 +109,7 @@ public class Message
 		{
 			str += "P" + encodeCoord(pos);
 		}
-		if (holding != -2)
+		if (holding != null)
 		{
 			str += "H" + encodeInt(holding);
 		}
