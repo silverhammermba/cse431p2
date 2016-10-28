@@ -13,7 +13,7 @@ public class World
 {
 	public enum Space { UNKNOWN, CLEAR };
 
-	private int size;
+	public final int size;
 	private Space grid[][];
 
 	public World(int size)
@@ -24,11 +24,6 @@ public class World
 		for (int i = 0; i < size; ++i)
 			for (int j = 0; j < size; ++j)
 				grid[i][j] = Space.UNKNOWN;
-	}
-
-	public int getSize()
-	{
-		return size;
 	}
 
 	public Space at(int x, int y)

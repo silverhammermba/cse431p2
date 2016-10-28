@@ -1,6 +1,5 @@
 package mba210;
 
-import pacworld.Location;
 import pacworld.Direction;
 
 import java.util.Objects;

@@ -8,7 +8,6 @@ import agent.Percept;
 import pacworld.Direction;
 import pacworld.Dropoff;
 import pacworld.Idle;
-import pacworld.Location;
 import pacworld.Move;
 import pacworld.PacPercept;
 import pacworld.Pickup;
@@ -16,7 +15,6 @@ import pacworld.Say;
 import pacworld.VisibleAgent;
 import pacworld.VisiblePackage;
 
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class PacAgent extends Agent
 {
@@ -166,9 +163,9 @@ public class PacAgent extends Agent
 		resolveGoalConflicts();
 
 		// figure out which spaces definitely do not have packages
-		boolean known[][] = new boolean[world.getSize()][world.getSize()];
-		for (int i = 0; i < world.getSize(); ++i)
-			for (int j = 0; j < world.getSize(); ++j)
+		boolean known[][] = new boolean[world.size][world.size];
+		for (int i = 0; i < world.size; ++i)
+			for (int j = 0; j < world.size; ++j)
 				known[i][j] = false;
 
 		// start by assuming that everything around the agent is known to be clear
@@ -223,9 +220,9 @@ public class PacAgent extends Agent
 		}
 
 		// now update our world map of clear spaces
-		for (int i = 0; i < world.getSize(); ++i)
+		for (int i = 0; i < world.size; ++i)
 		{
-			for (int j = 0; j < world.getSize(); ++j)
+			for (int j = 0; j < world.size; ++j)
 			{
 				if (known[i][j])
 				{
@@ -539,9 +536,9 @@ public class PacAgent extends Agent
 		Coord far = null;
 		int far_dist = 0;
 
-		for (int i = 0; i < world.getSize(); ++i)
+		for (int i = 0; i < world.size; ++i)
 		{
-			for (int j = 0; j < world.getSize(); ++j)
+			for (int j = 0; j < world.size; ++j)
 			{
 				Coord c = new Coord(i, j);
 
@@ -662,8 +659,8 @@ public class PacAgent extends Agent
 	{
 		List<Coord> nearby = new ArrayList<Coord>();
 
-		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.getSize() - 1); ++i)
-			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.getSize() - 1); ++j)
+		for (int i = Math.max(pos.x - vis_radius, 0); i <= Math.min(pos.x + vis_radius, world.size - 1); ++i)
+			for (int j = Math.max(pos.y - vis_radius, 0); j <= Math.min(pos.y + vis_radius, world.size - 1); ++j)
 				nearby.add(new Coord(i, j));
 
 		return nearby;

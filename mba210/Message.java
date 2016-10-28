@@ -20,6 +20,7 @@ public class Message
 		holding = -2;
 	}
 
+	// deserialize a Message object
 	public static Message fromString(String str)
 	{
 		Message message = new Message();
@@ -73,16 +74,20 @@ public class Message
 		return "" + (char)('!' + c);
 	}
 
+	// inverse of encodeInt
 	private static int decodeInt(char c)
 	{
 		return c - '!';
 	}
 
+	// shortcut for encoding x and y of a Coord
 	private String encodeCoord(Coord c)
 	{
 		return encodeInt(c.x) + encodeInt(c.y);
 	}
 
+	// serialize
+	@Override
 	public String toString()
 	{
 		String str = "";
